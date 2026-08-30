@@ -5,24 +5,23 @@ namespace UrlShortener.Api;
 public static class LinkEndpoints
 {
     internal const string CreateLinkPolicy = "create-link";
+    internal const string CodeRoute = "/{code:regex(^[0-9a-zA-Z]+$)}";
 
     public static void MapLinkEndpoints(this WebApplication app)
     {
         app.MapPost("/api/links", CreateLink).RequireRateLimiting(CreateLinkPolicy);
         app.MapGet("/api/links", ListLinks);
-        //TODO: M-CUR3 Magic route regex — named const aligned with ShortCode alphabet
-        app.MapGet("/{code:regex(^[0-9a-zA-Z]+$)}", Redirect);
+        app.MapGet(CodeRoute, Redirect);
     }
 
     private static async Task<IResult> CreateLink(
         CreateLinkRequest? request, LinkRegistry registry, HttpRequest http)
     {
         if (request is null) return Results.BadRequest();
-        ShortLink link;
-        try { link = await registry.CreateAsync(request); }
+        LinkResponse response;
+        try { response = (await registry.CreateAsync(request)).ToLinkResponse(GetBaseUri(http)); }
         catch (ArgumentException) { return Results.BadRequest(); }
-        //TODO: L-CUR1 Mild TDA — build Location from ToLinkResponse Code/ShortUrl only
-        return Results.Created($"/api/links/{link.Code}", link.ToLinkResponse(GetBaseUri(http)));
+        return Results.Created($"/api/links/{response.Code}", response);
     }
 
     private static async Task<IResult> ListLinks(LinkRegistry registry, HttpRequest http)

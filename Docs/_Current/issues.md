@@ -2,12 +2,21 @@
 
 Scope: unstaged URL shortener files specified in the review request. Audit only; no implementation changes made.
 
+## Session Update — 2026-08-30 (code-smells / plan-refactoring audit)
+
+- Smell plan rewritten to **CURRENT** state in `Docs/_Current/refactoring-plan.md`.
+- **No CRITICAL/HIGH open smells.** Open polish only: M-CUR1..4 (message chain EnsureCreated; magic 2048; route regex; test delay 3200), L-CUR1 (mild Location TDA). Planned R14–R18.
+- Stale post-refactor C-POST1 / M-POST1 / L-POST1 marked fixed or false-positive below.
+- Class naming: all scoped types OK (`ShortenerDbContext` PEAA exception; `LinkEndpoints` Map* host; `LinkRegistry` collection host). No new naming issues.
+- `//TODO` markers added at open smell sites only. No behavior/architecture/implementation changes.
+- Verification baseline unchanged: build 0 errors; 59/59 tests; 100% line coverage on changed product files.
+
 ## Session Update — 2026-08-30 (final review pass)
 
 - [Fixed] Domain layer had an outward dependency (`ShortLink.ToLinkResponse` with `using UrlShortener.Api`) introduced by the delegated reviewer's refactor. Remediated: mapping moved back to the Presentation layer (`ShortLinkResponseExtensions` in `UrlShortener/Api/LinkEndpoints.cs`); `Domain/ShortLink.cs` is dependency-free again. Verified: build 0 errors, 59/59 tests green.
 - [Fixed] Prior audit findings above were remediated in the resumed implementation: atomic transactional create, `ExecuteUpdateAsync` click increments, `UseForwardedHeaders` before rate limiting, parameterless `AssignCode`, DOM-safe `textContent` rendering, shared `TestServerFixture`.
 - [Open, Low] Browser-level UI test for `wwwroot/index.html` absent (API behavior covered by integration tests). Out of scope per plan §8.
-- [Open, Low] `RateLimitTests.Window_expiry_allows_request_again` uses a real 3.2 s delay (timing-sensitive).
+- [Open, Low] `RateLimitTests.Window_expiry_allows_request_again` uses a real 3.2 s delay (timing-sensitive) — also smell M-CUR4 / R17.
 - [Open, Low] Unequal-hash-code assertion targets an implementation detail (unequal objects are not contractually required to have distinct hash codes).
 - Coverage (XPlat Code Coverage): 100% line coverage on all changed product files. Acceptance-criteria traceability: 6/6 criteria fully met (100%).
 
@@ -22,11 +31,19 @@ Scope: unstaged URL shortener files specified in the review request. Audit only;
 - [Medium] ~~Long methods/conditionals/magics~~ → R5–R10 (residuals only where noted in plan).
 - [Low] Naming notes retained as historical.
 
-### Post-refactor NEW (follow-up R11–R13)
+### Post-refactor follow-up (R11–R13)
 
-- [Critical] `UrlShortener/Domain/ShortLink.cs:1`, `:28-29` - Domain references `UrlShortener.Api` / returns `LinkResponse` (`ToLinkResponse`). Layer inversion from R3. Plan R11.
-- [Medium] `Program.cs:12` + `LinkEndpoints.cs:7` - duplicated `"create-link"` const. Plan R12.
-- [Low] `RateLimitTests`/`ConcurrencyTests` re-set connection string already on fixture base. Plan R13.
+- [Critical] ~~Domain→Api `ToLinkResponse`~~ → **false positive / fixed** — extension lives in Api; Domain clean (R11 rejected).
+- [Medium] ~~duplicated `"create-link"`~~ → **fixed** R12 (`LinkEndpoints.CreateLinkPolicy`).
+- [Low] ~~tests re-set connection string~~ → **fixed** R13 (`RateLimitTests` rate settings only).
+
+### Current open (smell polish only — R14–R18)
+
+- [Medium] `Program.cs` EnsureCreated message chain (M-CUR1 / R14).
+- [Medium] `ShortenerDbContext` magic `2048` (M-CUR2 / R15).
+- [Medium] `LinkEndpoints` route regex magic (M-CUR3 / R16).
+- [Medium] `RateLimitTests` magic `3200` delay (M-CUR4 / R17).
+- [Low] `CreateLink` Location from `link.Code` mild TDA (L-CUR1 / R18).
 
 ## Correctness
 

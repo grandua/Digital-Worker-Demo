@@ -33,7 +33,7 @@ app.Run();
 static async Task EnsureDatabaseCreated(IServiceProvider services)
 {
     using var scope = services.CreateScope();
-    //TODO: M-CUR1 Message chain (3+ dots) — optional extract hiding GetRequiredService().Database.EnsureCreatedAsync
-    await scope.ServiceProvider.GetRequiredService<ShortenerDbContext>().Database.EnsureCreatedAsync();
+    var db = scope.ServiceProvider.GetRequiredService<ShortenerDbContext>();
+    await db.Database.EnsureCreatedAsync();
 }
 public partial class Program { }

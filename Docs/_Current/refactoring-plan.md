@@ -83,13 +83,13 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ## Named refactoring steps (open only — behavior-preserving)
 
-| Step | Standard refactoring | Target | Addresses | Detail |
-|------|---------------------|--------|-----------|--------|
-| R14 | **Extract Method** / hide chain | `EnsureDatabaseCreated` body | M-CUR1 | Optional one-liner wrapper for GetRequiredService+EnsureCreated |
-| R15 | **Introduce Constant** | `2048` max URL length | M-CUR2 | Shared name used by EF config (and domain guard if ever enforced same limit) |
-| R16 | **Introduce Constant** | route regex | M-CUR3 | `LinkEndpoints` or shared with ShortCode alphabet character class |
-| R17 | **Introduce Constant** | `3200` delay | M-CUR4 | Test const tied to window seconds |
-| R18 | **Replace Temp/Inline** Location | `CreateLink` Created URI | L-CUR1 | `var response = link.ToLinkResponse(...); Results.Created($"/api/links/{response.Code}", response)` |
+| Step | Standard refactoring | Target | Addresses | Detail | MCP tool(s) |
+|------|---------------------|--------|-----------|--------|-------------|
+| R14 | **Extract Method** / hide chain | `EnsureDatabaseCreated` body | M-CUR1 | Optional one-liner wrapper for GetRequiredService+EnsureCreated | `extract-method` |
+| R15 | **Introduce Constant** / **Introduce Field** | `2048` max URL length | M-CUR2 | Shared name used by EF config (and domain guard if ever enforced same limit) | `introduce-field`, `make-field-readonly`, `rename-symbol` |
+| R16 | **Introduce Constant** / **Introduce Field** | route regex | M-CUR3 | `LinkEndpoints` or shared with ShortCode alphabet character class | `introduce-field`, `make-field-readonly`, `rename-symbol` |
+| R17 | **Introduce Constant** | `3200` delay | M-CUR4 | Test const tied to window seconds | `introduce-field`, `rename-symbol` |
+| R18 | **Extract Variable** then use response | `CreateLink` Created URI | L-CUR1 | `var response = link.ToLinkResponse(...); Results.Created($"/api/links/{response.Code}", response)` | `introduce-variable`, `inline-method` (n/a if keeping map call once) |
 
 **Rejected / not planned:** new Parameter Objects; `ILinkService` 1-to-1; moving `LinkRegistry` solely for purity (architecture already places it in Presentation); re-introducing static gates; Domain holding Api DTOs.
 
@@ -106,10 +106,15 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 ## Decisions and trade-offs
 
 1. **AUDIT only** — `//TODO` markers allowed at open smell sites; no logic/tests/architecture edits.  
-2. Prior plan body described pre-refactor state; this file is the **current** source of truth.  
+2. Prior plan body described pre-refactor state; this file is the **current** source of truth (rewrote rather than incremental patch of stale C1–M15 tables).  
 3. XP: tests green (59/59); intent mostly clear after R5–R10; no product duplication; class count already minimal.  
 4. Residual MEDIUM items are polish, not blockers.  
-5. `LinkRegistry` two-save transaction is intentional EF identity allocation — not a CRITICAL smell.
+5. `LinkRegistry` two-save transaction is intentional EF identity allocation — not a CRITICAL smell.  
+6. **Priority ranking (current):** no CRITICAL/HIGH open → MEDIUM constants/message-chain (R15–R17, R14) → LOW Location TDA (R18). Correctness already fixed stays out of smell ranking.  
+7. **Did not re-flag** Presentation `LinkRegistry` orchestration as CRITICAL — matches stated architecture (Presentation includes LinkRegistry).  
+8. **C-POST1** kept rejected (Domain clean; mapper in Api).  
+9. **Skipped** second `framework-design-checklist` naming-types run after in-pass class-name verify (no naming defects).  
+10. **issues.md** updated in lockstep so stale R11–R13 open rows do not fight this plan.
 
 ---
 
@@ -137,3 +142,4 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 - Intent clear in Domain; minor compression residual (L-CUR2).  
 - No duplicate product code.  
 - Fewest classes needed for stated architecture.
+- R14-R18: DONE (final polish pass) — named constants MaxUrlLength (ShortenerDbContext) and CodeRoute (LinkEndpoints), EnsureCreated chain flattened in Program.cs, CreateLink builds Location from mapped LinkResponse, WindowExpiryBufferMs test constant. All //TODO markers removed (0 remaining). Verified: dotnet test 59/59 passed. Refactoring plan fully executed.

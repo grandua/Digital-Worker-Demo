@@ -9,69 +9,72 @@ Create a high level plan for this task (high level plan is enough, do not run a 
 A **single ASP.NET Core web project** (minimal APIs) that serves both the REST API and the static HTML page. Physical components:
 
 - **Minimal API host** (`Program.cs`): registers routing, static files, rate limiting middleware, EF Core.
-- **Domain model**: a rich `ShortLink` entity that owns its behavior (URL validation, short-code assignment, click tracking) — no service blobs.
-- **Persistence**: EF Core `ShortenerDbContext` + SQLite (`Microsoft.EntityFrameworkCore.Sqlite`), one table, file `shortener.db`. Thin repository (`IShortLinkRepository`) used by endpoints.
+- **Domain model**: a `ShortLink` entity that owns its behavior (URL validation, short-code assignment, click tracking) — no service blobs. `ShortCode` value object encapsulates base62 encoding/decoding and code validation (replaces a static utility class).
+- **Persistence**: EF Core `ShortenerDbContext` + SQLite (`Microsoft.EntityFrameworkCore.Sqlite`), one table, file `shortener.db`. Endpoints inject `ShortenerDbContext` directly (no repository abstraction needed at this scope).
 - **Rate limiting**: built-in ASP.NET Core `System.Threading.RateLimiting` middleware, fixed-window per client IP, applied to the create endpoint (429 on excess).
 - **Frontend**: `wwwroot/index.html` — hand-written HTML/CSS/JS, no framework, no build step. Served via `UseStaticFiles` + `UseDefaultFiles`; API under `/api`, redirect route at root `/{code}`.
 
-Interaction: Browser loads `index.html` → JS calls `POST /api/links` / `GET /api/links` → endpoints use domain entity + repository → SQLite. Clicking a short link hits `GET /{code}` → 302 redirect to original URL.
+Interaction: Browser loads `index.html` → JS calls `POST /api/links` / `GET /api/links` → endpoints use domain entity + `ShortenerDbContext` → SQLite. Clicking a short link hits `GET /{code}` → 302 redirect to original URL.
 
 ## 2. New Classes Planned
 
 | Class | Responsibilities | New State/Fields | Associations | Methods |
 |---|---|---|---|---|
-| `ShortLink` (domain entity, rich) | Owns a shortened URL: validation, code derivation, click counting | `long Id`, `string OriginalUrl`, `string Code`, `DateTime CreatedAt`, `int ClickCount` | none (root entity) | `ShortLink(string originalUrl)` ctor — validates absolute http/https URL, throws on invalid; `AssignShortCode()` — derives `Code` from `Id` via Base62 (called once `Id` exists); `RegisterClick()` — increments `ClickCount` |
-| `Base62Codec` (static domain utility) | Number↔base62 string conversion | alphabet const `[0-9a-zA-Z]` | used by `ShortLink` | `Encode(long value)`, `Decode(string code)` — throw on negative/invalid input |
+| `ShortLink` (domain entity) | Owns a shortened URL: validation, code derivation, click counting | `long Id`, `string OriginalUrl`, `ShortCode Code`, `DateTime CreatedAt`, `int ClickCount` | owns `ShortCode` value object | `ShortLink(string originalUrl)` ctor — validates absolute http/https URL, throws on invalid; `AssignCode(long id)` — sets `Code = ShortCode.FromId(id)` (called by endpoint after save assigns the auto-increment Id); `RegisterClick()` — increments `ClickCount` |
+| `ShortCode` (value object) | Encapsulates a base62 short code: encoding, decoding, validation, equality | `string Value` (the base62 string), alphabet const `[0-9a-zA-Z]` | owned by `ShortLink` | `ShortCode.FromId(long id)` — factory; encodes id to base62, throws on negative; `ShortCode.Parse(string code)` — factory; validates base62 chars, throws on null/empty/invalid; `ToString()` → `Value`. EF Core maps via value conversion (`ShortCode` ↔ `string` column). |
 | `ShortenerDbContext` | EF Core session/Unit of Work | `DbSet<ShortLink> Links` | maps `ShortLink` | `OnModelCreating` — configure keys/index on `Code` (unique) |
-| `IShortLinkRepository` + `ShortLinkRepository` | Persistence boundary used by endpoints | holds `ShortenerDbContext` | operates on `ShortLink` | `Add(ShortLink)`, `GetByCode(string)`, `List(int count)`, `SaveChanges` |
-| Endpoints (in `Program.cs` or `LinkEndpoints` static class) | HTTP plumbing only — parse, delegate, map status codes | none | uses `IShortLinkRepository` + entity behavior | `MapLinkEndpoints(WebApplication)`: `POST /api/links`, `GET /api/links`, `GET /{code}` |
+| Endpoints (`LinkEndpoints` static class) | HTTP plumbing only — parse, delegate, map status codes | none | injects `ShortenerDbContext` directly (no repository abstraction — YAGNI for a single-project app with one persistence implementation) | `MapLinkEndpoints(WebApplication)`: `POST /api/links`, `GET /api/links`, `GET /{code}` |
 | DTOs (`CreateLinkRequest`, `LinkResponse`) | API contract decoupled from entity | `Url`, `Code`, `OriginalUrl`, `ShortUrl`, `ClickCount` | mirrors entity outward | none |
 | Rate limit config (in `Program.cs`) | Throttle link creation | policy: e.g. 20 requests / 60 s per IP, fixed window | applied to POST | `AddRateLimiter(...)` registration + `RequireRateLimiting` on POST |
 | `index.html` (static) | UI: one input, one button, list of links | — | calls REST API | fetch create/list, render list, anchor click → redirect |
 
-Behavior placement honored: code derivation and validation live **on `ShortLink`**, not in a service; the endpoint is a thin coordinator.
+Behavior placement honored: code derivation and validation live **on `ShortCode` value object** (owned by `ShortLink`), not in a static utility or service; the endpoint is a thin coordinator. No `IShortLinkRepository` interface — endpoints use `ShortenerDbContext` directly, keeping the codebase simple.
 
 ## 3. Data Flow / Control Flow
 
-- **Create**: `POST /api/links {url}` → rate-limit middleware → DTO → `new ShortLink(url)` (validates; 400 on failure) → repository `Add` + save (gets `Id`) → `link.AssignShortCode()` → save → `201 {code, shortUrl}`.
-- **Redirect**: `GET /{code}` → repository `GetByCode` → 404 if missing → `link.RegisterClick()` → save → `302 Location: link.OriginalUrl`. (Static-files middleware only handles existing files, so `/{code}` reaches routing.)
-- **List**: `GET /api/links` → repository `List` (latest N) → 200 DTO array → page renders.
+- **Create**: `POST /api/links {url}` → rate-limit middleware → DTO → `new ShortLink(url)` (validates; 400 on failure) → `db.Links.Add` + `SaveChanges` (gets auto-increment `Id`) → `link.AssignCode(link.Id)` → `SaveChanges` → `201 {code, shortUrl}`. (Two saves required because code derives from auto-increment Id; this is intentional and acceptable for simplicity.)
+- **Redirect**: `GET /{code:regex(^[0-9a-zA-Z]+$)}` → `db.Links.FirstOrDefault(l => l.Code == code)` → 404 if missing → `link.RegisterClick()` → save → `302 Location: link.OriginalUrl`. Route constraint ensures only base62-valid codes reach this endpoint; other paths fall through to static files or 404.
+- **List**: `GET /api/links` → `db.Links` query (latest N, ordered by `CreatedAt` descending) → 200 DTO array (empty array `[]` when no links exist) → page renders.
 - **UI**: on load `GET /api/links`; button `POST`s; list items are anchors to the short URL (click → 302).
 
 ## 4. Integration Points / Project Structure (Greenfield)
 
-Repo is effectively empty; create:
+Repo is effectively empty (README.md and appsettings.json are Digital Worker tooling files, not application code); create:
 
 ```
 UrlShortener/                (web project)
   Program.cs
-  Domain/ShortLink.cs, Base62Codec.cs
-  Infrastructure/ShortenerDbContext.cs, ShortLinkRepository.cs
+  Domain/ShortLink.cs, ShortCode.cs
+  Data/ShortenerDbContext.cs
   Api/LinkEndpoints.cs, Dtos.cs
   wwwroot/index.html
 UrlShortener.Tests/          (xUnit)
 UrlShortener.sln
 ```
 
-Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` already suits .NET build output.
+Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` already suits .NET build output but **must be updated** to exclude `*.db` (SQLite database files).
 
 ## 5. Implementation Sequence
 
-1. Solution + projects scaffold; `Base62Codec` + `ShortLink` with unit tests (TDD).
-2. EF Core: `DbContext`, repository, SQLite wiring, `EnsureCreated` on startup.
-3. Endpoints (create/list/redirect) + integration tests.
+1. Solution + projects scaffold; update `.gitignore` to add `*.db`; `ShortCode` value object + `ShortLink` entity with unit tests (TDD).
+2. EF Core: `ShortenerDbContext`, SQLite wiring, `EnsureCreated` on startup.
+3. Endpoints (create/list/redirect with route constraint) + integration tests.
 4. Rate-limiting policy + 429 test.
 5. Static `index.html` + manual verification.
 
 ## 6. Assessment
 
-**Simple enough to implement from this high-level plan** — one entity, one utility, one repository, three endpoints, one static page; no complex associations or cross-aggregate logic. A full `/plan-and-design` workflow is **not** required.
+**Simple enough to implement from this high-level plan** — one entity, one value object, one DbContext, three endpoints, one static page; no complex associations or cross-aggregate logic. A full `/plan-and-design` workflow is **not** required.
 
 ## 7. Assumptions, Decisions, Trade-offs
 
-- **Code generation**: derive code from SQLite autoincrement `Id` via Base62 → zero collisions by construction, no retry loop. Trade-off: sequential/predictable codes (acceptable, no auth demo).
+- **No architecture doc**: `Docs/architecture.md` does not exist in this repo. This plan is self-contained.
+- **Code generation**: derive code from SQLite autoincrement `Id` via `ShortCode.FromId(id)` (base62) → zero collisions by construction, no retry loop. Trade-off: sequential/predictable codes (acceptable, no auth demo).
+- **Two-save create flow**: First save to get auto-increment `Id`, then `AssignCode(id)` + second save. Acceptable for simplicity; the alternative (pre-generating codes) adds complexity.
 - **Code length**: 1–7 chars, grows naturally from Id; no fixed padding.
-- **Alphabet**: `[0-9a-zA-Z]`; `Decode` validates membership.
+- **Alphabet**: `[0-9a-zA-Z]`; `ShortCode.Parse` validates membership.
+- **Route constraint**: `GET /{code:regex(^[0-9a-zA-Z]+$)}` to prevent the catch-all from swallowing favicon, robots.txt, or other non-API paths.
+- **No repository abstraction**: endpoints use `ShortenerDbContext` directly. For this scope (3 endpoints, one persistence target, integration-tested with WebApplicationFactory) an `IShortLinkRepository` is YAGNI.
 - **Rate limiting**: built-in in-memory middleware (single instance). Distributed store (Redis) out of scope.
 - **Storage init**: `Database.EnsureCreated()` for simplicity vs. migrations (optional upgrade path noted).
 - **Duplicates**: same long URL may be submitted multiple times → new short link each time (simplest semantics).
@@ -94,7 +97,62 @@ Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` alr
 
 ## 10. Test Cases to Implement
 
-- **Unit — Base62Codec**: `Encode(0)`, known vectors (e.g. 1→"1", 62→"10", sample large values), `Encode(negative)` throws, `Decode` invalid char throws, round-trip `Decode(Encode(n)) == n` over a range.
-- **Unit — ShortLink**: ctor rejects null/relative/non-http URL; `AssignShortCode` sets expected code from Id; `RegisterClick` increments.
-- **Integration (WebApplicationFactory, temp SQLite)**: create→201 with code; create invalid→400; redirect→302 with Location; redirect unknown→404; list returns created items; click count increments after redirect.
-- **Rate-limit integration**: burst POSTs beyond policy → some 429s (use isolated test policy with small limits).
+### Unit — ShortCode (value object)
+- `ShortCode.FromId(0)` → `Value` is `"0"` (zero edge)
+- `ShortCode.FromId(1)` → `"1"`, `FromId(9)` → `"9"`, `FromId(10)` → `"a"` (digit-to-letter transition)
+- `ShortCode.FromId(61)` → last single-char code `"Z"` (upper boundary of 1-char codes)
+- `ShortCode.FromId(62)` → first two-char code `"10"` (carry boundary)
+- `ShortCode.FromId(63)` → `"11"` (second two-char code)
+- `ShortCode.FromId(3843)` → last two-char code (upper boundary of 2-char codes)
+- `ShortCode.FromId(3844)` → first three-char code (carry boundary)
+- `ShortCode.FromId(long.MaxValue)` → valid string without overflow
+- `ShortCode.FromId(negative)` → throws `ArgumentOutOfRangeException`
+- `ShortCode.Parse("0")` → `Value` is `"0"`, `Parse("Z")` → `"Z"` (single-char boundaries)
+- `ShortCode.Parse("10")` → valid (two-char boundary)
+- `ShortCode.Parse("")` → throws (empty string)
+- `ShortCode.Parse(null)` → throws
+- `ShortCode.Parse("abc!@#")` → throws (invalid characters)
+- `ShortCode.Parse("abc def")` → throws (whitespace in code)
+- Round-trip: `ShortCode.Parse(ShortCode.FromId(n).Value)` equals `ShortCode.FromId(n)` for values 0, 1, 61, 62, 63, 3843, 3844, 100000, `long.MaxValue`
+- Equality: two `ShortCode` instances with same value are equal (`Equals`, `==`, `GetHashCode`)
+
+### Unit — ShortLink
+- Ctor with valid `http://` URL → succeeds, sets `OriginalUrl`, `CreatedAt` set, `ClickCount` = 0, `Code` is null
+- Ctor with valid `https://` URL → succeeds
+- Ctor with `null` → throws
+- Ctor with `""` (empty string) → throws
+- Ctor with `"   "` (whitespace-only) → throws
+- Ctor with `"example.com"` (no scheme) → throws
+- Ctor with `"ftp://example.com"` (non-http scheme) → throws
+- Ctor with relative URL `"/path/page"` → throws
+- `AssignCode(id)` with known id → sets `Code` to `ShortCode` matching `ShortCode.FromId(id)`
+- `AssignCode` with `id = 0` → sets `Code` to `ShortCode` with value `"0"` (edge case: auto-increment typically starts at 1 but entity must handle it)
+- `RegisterClick()` once → `ClickCount` = 1
+- `RegisterClick()` three times → `ClickCount` = 3
+
+### Integration (WebApplicationFactory, in-memory/temp SQLite)
+- `POST /api/links` with valid https URL → 201 with `code` and `shortUrl` in response body
+- `POST /api/links` with valid http URL → 201 (both schemes accepted)
+- `POST /api/links` with empty body → 400
+- `POST /api/links` with malformed JSON → 400
+- `POST /api/links` with `url: ""` → 400
+- `POST /api/links` with `url: "not-a-url"` → 400
+- `POST /api/links` with `url: "ftp://x.com"` → 400
+- Two sequential creates → each gets unique code
+- `GET /{code}` for existing link → 302 with correct `Location` header
+- `GET /{code}` for unknown code → 404
+- `GET /abc!@#` (invalid base62 chars in path) → does not match redirect route (falls through to 404 or static files)
+- `GET /` → serves `index.html` (default file), not redirect endpoint
+- `GET /api/links` when no links exist → 200 with empty JSON array `[]`
+- `GET /api/links` after creating N links → returns all N in response, ordered by most recent first
+- Click count increments: create link → redirect via `GET /{code}` → `GET /api/links` → verify `clickCount` = 1
+- Multiple redirects increment count accurately: redirect 3 times → verify `clickCount` = 3
+
+### Rate-limit integration
+- Burst POSTs up to policy limit → all succeed (200/201)
+- Burst POSTs at limit+1 → the excess request returns 429
+- Requests from different IPs (simulated via headers or test config) are rate-limited independently
+- After the fixed window expires, requests succeed again (use a test-friendly small window)
+
+### Concurrency
+- Two simultaneous `POST /api/links` requests → both succeed with distinct codes (no duplicate code collision)

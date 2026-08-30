@@ -70,6 +70,7 @@ Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` alr
 
 - **No architecture doc**: `Docs/architecture.md` does not exist in this repo. This plan is self-contained.
 - **Code generation**: derive code from SQLite autoincrement `Id` via `ShortCode.FromId(id)` (base62) → zero collisions by construction, no retry loop. Trade-off: sequential/predictable codes (acceptable, no auth demo).
+- **Middleware ordering**: `UseDefaultFiles`/`UseStaticFiles` run before endpoint mapping; the redirect route never conflicts because a single-segment base62 `{code}` path never matches a real file, and `/api/*` routes are matched by endpoint routing first. Validation confirmed.
 - **Two-save create flow**: First save to get auto-increment `Id`, then `AssignCode(id)` + second save. Acceptable for simplicity; the alternative (pre-generating codes) adds complexity.
 - **Code length**: 1–7 chars, grows naturally from Id; no fixed padding.
 - **Alphabet**: `[0-9a-zA-Z]`; `ShortCode.Parse` validates membership.
@@ -156,3 +157,13 @@ Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` alr
 
 ### Concurrency
 - Two simultaneous `POST /api/links` requests → both succeed with distinct codes (no duplicate code collision)
+
+## 11. Plan Validation (Refinement Pass)
+
+Re-validated in a second planning run (plan already existed from a prior run; refined and verified rather than rewritten):
+
+- **Repo state re-verified**: still greenfield — `README.md` and `appsettings.json` are Digital Worker tooling files (no application code); `Docs/architecture.md` still absent; `.gitignore` still lacks `*.db` (update remains queued in Implementation Sequence step 1). No integration points changed.
+- **Domain-first design / Anti-Procedural Checklist re-run**: passes. Behavior lives on `ShortLink` (validation, code assignment, click tracking) and `ShortCode` (encoding/parsing/equality); no anemic entities, no static utility classes, no service blobs, no repository interface (YAGNI at this scope); DTOs carry nothing but data; endpoints stay thin coordinators.
+- **Architectural correctness validated**: single physical component (one ASP.NET Core host) serving both API and static page — interaction shown in §1/§3; route constraint keeps the catch-all redirect from swallowing `/api/*`, `index.html`, and static assets; value-object EF mapping via value conversion is the correct pattern; two-save create flow and id-derived codes confirmed sound.
+- **Test cases reviewed**: boundary values verified arithmetically (e.g. alphabet `[0-9a-zA-Z]`: id 61 → `"Z"`, id 62 → `"10"`, id 3843 → `"ZZ"`, id 3844 → 3 chars).
+- **Assessment confirmed**: implementable from this high-level plan alone — **no `/plan-and-design` required**. No open questions; no structural changes to the plan were needed, only the clarifications above.

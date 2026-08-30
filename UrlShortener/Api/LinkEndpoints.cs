@@ -10,6 +10,7 @@ public static class LinkEndpoints
     {
         app.MapPost("/api/links", CreateLink).RequireRateLimiting(CreateLinkPolicy);
         app.MapGet("/api/links", ListLinks);
+        //TODO: M-CUR3 Magic route regex — named const aligned with ShortCode alphabet
         app.MapGet("/{code:regex(^[0-9a-zA-Z]+$)}", Redirect);
     }
 
@@ -20,6 +21,7 @@ public static class LinkEndpoints
         ShortLink link;
         try { link = await registry.CreateAsync(request); }
         catch (ArgumentException) { return Results.BadRequest(); }
+        //TODO: L-CUR1 Mild TDA — build Location from ToLinkResponse Code/ShortUrl only
         return Results.Created($"/api/links/{link.Code}", link.ToLinkResponse(GetBaseUri(http)));
     }
 

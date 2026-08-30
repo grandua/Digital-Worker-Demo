@@ -42,7 +42,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ---
 
-## MEDIUM (open — refactor when convenient)
+## MEDIUM (all fixed)
 
 | ID | Location | Smell | Snippet / note | Planned refactor |
 |----|----------|-------|----------------|------------------|
@@ -53,7 +53,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ---
 
-## LOW (open — nice to have)
+## LOW (L-CUR1 fixed; L-CUR2–4 document-only)
 
 | ID | Location | Smell | Snippet / note | Planned refactor |
 |----|----------|-------|----------------|------------------|
@@ -81,7 +81,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ---
 
-## Named refactoring steps (open only — behavior-preserving)
+## Named refactoring steps (ALL APPLIED — behavior-preserving)
 
 | Step | Standard refactoring | Target | Addresses | Detail | MCP tool(s) |
 |------|---------------------|--------|-----------|--------|-------------|

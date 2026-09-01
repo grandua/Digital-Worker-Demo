@@ -189,6 +189,25 @@ public class CalculatorTests
         Assert.Equal(CalcError.Malformed, calculator.ActiveError);
     }
 
+    [Fact]
+    public void IgnoredKeysDuringLockoutLeavePreviewAndErrorUnchanged()
+    {
+        Calculator calculator = new Calculator().PressAll("2+3=");
+        calculator.PressAll("1/0=");
+        Assert.True(calculator.Locked);
+        Assert.Null(calculator.Preview);
+
+        calculator.PressAll("7*8");
+        calculator.Press(InputKey.Ans);
+        calculator.Press(InputKey.Delete);
+
+        Assert.Null(calculator.Preview);
+        Assert.Equal("1/0", calculator.Buffer.Text());
+        Assert.True(calculator.Locked);
+        Assert.Equal(CalcError.DivisionByZero, calculator.ActiveError);
+        Assert.Equal(5.0, calculator.LastAnswer);
+    }
+
     [Theory]
     [InlineData("12+34", "12+")]
     [InlineData("12", "")]

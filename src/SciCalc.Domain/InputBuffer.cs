@@ -46,8 +46,7 @@ public sealed class InputBuffer
 
     public IReadOnlyList<Token> Tokens => _tokens.AsReadOnly();
 
-    // TODO(review): MEDIUM - derive overflow from number text; mutable cached state becomes stale after RemoveLastToken.
-    public bool HasLiteralOverflow { get; private set; }
+    public bool HasLiteralOverflow => _numberText is not null && !TryParseFinite(_numberText, out _);
 
     public string? EditingNumber => _numberText;
 
@@ -74,14 +73,12 @@ public sealed class InputBuffer
         _numberText = _tokens.Count > 0 && _tokens[^1].Kind == TokenKind.Number
             ? _tokens[^1].NumericValue!.Value.ToString(CultureInfo.InvariantCulture)
             : null;
-        HasLiteralOverflow = _numberText is not null && !TryParseFinite(_numberText, out _);
     }
 
     public void Clear()
     {
         _tokens.Clear();
         _numberText = null;
-        HasLiteralOverflow = false;
     }
 
     public string Text() => string.Concat(_tokens.Select((token, index) => Render(token, index)));
@@ -130,11 +127,7 @@ public sealed class InputBuffer
     private void SyncNumberToken(bool replaceLast)
     {
         if (!TryParseFinite(_numberText!, out double value))
-        {
-            HasLiteralOverflow = true;
             return;
-        }
-        HasLiteralOverflow = false;
         if (replaceLast) _tokens[^1] = Token.Number(value);
         else _tokens.Add(Token.Number(value));
     }

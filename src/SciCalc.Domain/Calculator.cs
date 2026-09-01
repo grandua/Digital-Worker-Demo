@@ -168,9 +168,7 @@ public sealed class Calculator
 
     private void StoreMemory(MemorySlotId slot)
     {
-        if (LastAnswer is { } answer) { Memory.Store(slot, answer); return; }
-        CalculationResult current = EvaluateBuffer();
-        if (!current.HasError) Memory.Store(slot, current.Value!.Value);
+        if (Preview is { } value) Memory.Store(slot, value);
     }
 
     private void RecallMemory(MemorySlotId slot)

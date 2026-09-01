@@ -1,5 +1,11 @@
 # SciCalc Correctness and Standards Review
 
+## Final verification iteration 6 findings — fixed
+
+- [Fixed] `src/SciCalc.Domain/InputBuffer.cs`: `HasLiteralOverflow` was mutable state copied from `_numberText`. **Fix:** replaced it with an expression-bodied JIT query and removed imperative assignments.
+- [Fixed] `src/SciCalc.Domain/Calculator.cs`: memory store preferred `LastAnswer` whenever history existed, so `STO` ignored a valid current-buffer preview. **Fix:** store the pull-based `Preview` value and cover the mixed history/current-buffer case.
+- Razor wiring review: all keypad, mode, memory, and history buttons route to the intended aggregate command. No explicit `StateHasChanged` is needed for these Blazor event callbacks.
+
 > Consolidated findings index (full detail below): blocking fixes required — (1) InputBuffer long-literal OverflowException must route to CalcError.Overflow + AC-only lockout; (2) DEL must preserve numeric editing state; (3) FunctionKind.Abs must join IsPostfixWrapKey; refactor backlog — EvaluationContext anemic/unused-Ans, Calculator derived-state → smart properties, presentation glyphs out of InputBuffer, mutable-list exposure, static BinaryNode member, >10-line methods, underscore field names, KeyDef/MemSlot/OperatorKind abbreviations, contiguous-enum memory routing, YAGNI (HistoryEntry timestamp), Razor @key/StateHasChanged/M+ label.
 
 > **Refactoring plan status:** `Docs/_Current/refactoring-plan.md` created by `/find-smells-and-plan-refactoring` session `88809b08542048caab1bd58682e8d56b`. Sequence **A** (correctness) → **B** (structural) → **C** (gates). Smell counts: CRITICAL 0, HIGH 8, MEDIUM 18, LOW 14. No new classes required beyond optional nested private records; prefer existing Calculator/AngleMode/InputBuffer hosts.

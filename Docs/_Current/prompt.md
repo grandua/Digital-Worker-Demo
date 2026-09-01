@@ -2,6 +2,18 @@
 
 Build a scientific calculator app "SciCalc" that runs natively on Windows, macOS, iOS, and Android from a single .NET MAUI Blazor Hybrid project. Keypad-driven scientific calculator: +, -, *, / with precedence; parentheses (unlimited depth, unmatched detection); scientific functions (sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, log10, ln, e^x, 10^x, x², x³, √, ∛, x^y, n!, |x|, 1/x, mod); constants π, e; DEG/RAD toggle visible in UI; unary minus context; right-associative `^`; percent semantics (50% → 0.5, "200 + 10%" → 220); history of last 10 evaluated expressions (tap to re-insert); memory M1/M2/M3 with store/recall/clear + non-empty indicator; ANS key; AC/DEL; error handling (div-zero, sqrt of negative, ln of non-positive, bad factorial, asin/acos |x|>1, overflow, malformed) with "Error" + reason, lockout until AC; two-line display (input line + last result / live preview). Tech: .NET 10, .NET MAUI Blazor Hybrid (BlazorWebView + Razor), xUnit, NO external NuGets — hand-written parser/evaluator in Domain layer; no DataTable.Compute / Roslyn. Windows primary target; mobile/mac must compile but need not be device-tested.
 
+# High-Level Plan: Final Verification Iteration 6
+
+- Scope: fix only the confirmed pull-state violation in `InputBuffer` and stale memory-store selection in `Calculator`; retain existing Domain/Presentation boundaries and all Razor routes.
+- Physical components: `SciCalc.Domain` owns both fixes; `SciCalc.Tests` adds one session regression test; audit documents record the review. Presentation remains unchanged.
+- New classes/state/associations/methods: none.
+- Data flow: `STO` evaluates a non-empty current buffer before falling back to the latest history answer; `HasLiteralOverflow` is queried directly from current number-edit text.
+- Test-first: prove an older answer does not override the current expression during memory store, then apply the minimal behavior fix. Existing overflow tests verify the pull property without a behavior change.
+- Assumptions: Blazor event callbacks rerender automatically; MAUI workloads/component harness remain unavailable; parser/evaluator behavior outside confirmed defects is unchanged.
+- Trade-off: recompute finite parsing on property access rather than retain a mutable cache, favoring correctness and pull-based domain state over an unmeasured micro-optimization.
+- Out of scope: naming, display-map deduplication, method extraction, test-helper cleanup, and all other refactoring backlog.
+- Acceptance: all derived session properties are pull-based; `STO` stores the current valid expression when present; all Razor mappings remain correct; `dotnet test tests/SciCalc.Tests` passes.
+
 # High-Level Plan: SciCalc (.NET MAUI Blazor Hybrid) — Resume Pass 2: UI, Build Hygiene, Verification
 
 > Applies to commit `de4cef8` (TDD iterations 1-3 committed). Domain logic was re-verified against the spec; plan covers **remaining work only**.

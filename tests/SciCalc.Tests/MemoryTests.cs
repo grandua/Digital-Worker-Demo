@@ -108,6 +108,17 @@ public class MemoryTests
     }
 
     [Fact]
+    public void StoreWithCurrentBufferPrefersPreviewOverLastAnswer()
+    {
+        Calculator calculator = new Calculator().PressAll("8=");
+        calculator.PressAll("2+3");
+
+        calculator.Press(InputKey.StoreM1);
+
+        Assert.Equal(5.0, calculator.Memory.Recall(MemorySlotId.M1));
+    }
+
+    [Fact]
     public void StoringDoesNotChangeBufferOrPreview()
     {
         Calculator calculator = new Calculator().PressAll("2+3");

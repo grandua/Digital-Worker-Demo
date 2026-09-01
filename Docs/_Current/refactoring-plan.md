@@ -313,7 +313,7 @@ Do **not** use extract-interface / create-adapter for Domain.
 3. [x] **A3** Abs postfix  
 4. [x] **B1a** session smart properties  
 5. [x] **B5** EvaluationContext/AngleMode  
-6. [ ] **B1b** HasLiteralOverflow derived (**N-M2**) → gate  
+6. [x] **B1b** HasLiteralOverflow derived (**N-M2**) → gate  
 7. [ ] **B9** CSS/markup align + mode-rad (**N-M1**, **N-L2**) → gate  
 8. [ ] **B10** README _Imports path (**N-L1**)  
 9. [ ] **B2** immutable snapshots + drop At → gate  
@@ -355,3 +355,9 @@ Do **not** use extract-interface / create-adapter for Domain.
 - Remaining follow-up (environment-limited, documented): CalculatorPage.razor component coverage — requires MAUI workloads/bUnit harness; tracked as the single open TODO(review).
 - Next phase (post-delivery backlog): none required for MVP; optional L8 test-DSL consolidation and H8 AssertClose×3 merge remain as low-priority notes in issues.md.
 - Gates re-run after fixes: dotnet build 0 warnings/0 errors; MTP suite 225/225 passed.
+
+## Final verification iteration 6 execution record
+
+- B1b/N-M2 completed: `InputBuffer.HasLiteralOverflow` is now JIT-derived from current number-edit text with no imperative writes.
+- Session correctness fix: memory store now uses the current pull-based preview when a valid buffer expression exists, instead of preferring a stale history answer; focused regression coverage added.
+- Structural and optional refactoring backlog remains out of scope for this iteration.

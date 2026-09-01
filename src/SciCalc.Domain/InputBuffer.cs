@@ -74,6 +74,7 @@ public sealed class InputBuffer
         _numberText = _tokens.Count > 0 && _tokens[^1].Kind == TokenKind.Number
             ? _tokens[^1].NumericValue!.Value.ToString(CultureInfo.InvariantCulture)
             : null;
+        HasLiteralOverflow = _numberText is not null && !TryParseFinite(_numberText, out _);
     }
 
     public void Clear()

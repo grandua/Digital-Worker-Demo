@@ -2,9 +2,9 @@ namespace SciCalc.Domain;
 
 public sealed class MemoryBank
 {
-    private double? _m1;
-    private double? _m2;
-    private double? _m3;
+    private double? m1;
+    private double? m2;
+    private double? m3;
 
     public void Store(MemorySlotId slot, double value) => Slot(slot) = value;
 
@@ -18,9 +18,9 @@ public sealed class MemoryBank
     {
         switch (slot)
         {
-            case MemorySlotId.M1: return ref _m1;
-            case MemorySlotId.M2: return ref _m2;
-            default: return ref _m3;
+            case MemorySlotId.M1: return ref m1;
+            case MemorySlotId.M2: return ref m2;
+            default: return ref m3;
         }
     }
 }

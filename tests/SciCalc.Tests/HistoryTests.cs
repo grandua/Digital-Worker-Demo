@@ -19,7 +19,7 @@ public class HistoryTests
     }
 
     [Fact]
-    public void RestoreHistoryReplacesBufferWithStoredTokens()
+    public void RestoreHistoryReplacesBufferWithStoredExpression()
     {
         Calculator calculator = new Calculator().PressAll("2+3=");
         HistoryEntry entry = Assert.Single(calculator.History);
@@ -28,10 +28,9 @@ public class HistoryTests
         calculator.RestoreHistory(entry);
 
         Assert.Equal("2+3", calculator.Buffer.Text());
-        Assert.Equal(
-            new Token[] { Token.Number(2), Token.Operator(OperatorKind.Add), Token.Number(3) },
-            calculator.Buffer.Tokens);
         Assert.Equal(5.0, calculator.Preview);
+        calculator.Press(InputKey.Eq);
+        Assert.Equal(5.0, calculator.LastAnswer);
     }
 
     [Fact]
@@ -43,18 +42,19 @@ public class HistoryTests
 
         calculator.RestoreHistory(entry);
 
-        Assert.Equal("1÷0", calculator.Buffer.Text());
+        Assert.Equal("1/0", calculator.Buffer.Text());
         Assert.True(calculator.Locked);
     }
 
     [Fact]
-    public void HistoryEntryRecordsEvaluationTimestamp()
+    public void HistoryEntryFreezesTokenSnapshotAtConstruction()
     {
-        DateTime before = DateTime.UtcNow;
+        List<Token> source = [Token.Number(2)];
+        HistoryEntry entry = new("1", 1, source);
 
-        Calculator calculator = new Calculator().PressAll("1+1=");
+        source.Clear();
 
-        Assert.InRange(calculator.History[0].At, before, DateTime.UtcNow);
+        Assert.Equal(Token.Number(2), Assert.Single(entry.Tokens));
     }
 
     [Fact]

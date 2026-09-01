@@ -11,6 +11,7 @@ public class EvaluatorTests
     [InlineData("2+3-4", 1)]
     [InlineData("1+2*3-4/2", 5)]
     [InlineData("-5", -5)]
+    [InlineData("-2+3", 1)]
     [InlineData("2*-3", -6)]
     [InlineData("-(-3)", 3)]
     [InlineData("-(2+3)", -5)]
@@ -18,6 +19,7 @@ public class EvaluatorTests
     [InlineData("(-2)^2", 4)]
     [InlineData("10 mod 3", 1)]
     [InlineData("-10 mod 3", -1)]
+    [InlineData("10 mod 3 mod 2", 1)]
     [InlineData("7 mod 2 * 3", 3)]
     [InlineData("0^0", 1)]
     [InlineData("2*(1.5+0.5)", 4)]
@@ -30,7 +32,7 @@ public class EvaluatorTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext());
+        CalculationResult result = expression.Evaluate(AngleMode.Radians);
 
         AssertClose(result, expected);
     }
@@ -48,7 +50,7 @@ public class EvaluatorTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext());
+        CalculationResult result = expression.Evaluate(AngleMode.Radians);
 
         Assert.Equal(expected, result.Error);
     }

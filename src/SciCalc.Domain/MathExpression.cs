@@ -2,18 +2,20 @@ namespace SciCalc.Domain;
 
 public sealed class MathExpression(IReadOnlyList<Token> tokens)
 {
-    public CalculationResult Evaluate(EvaluationContext context)
+    public CalculationResult Evaluate(AngleMode mode)
     {
         try
         {
-            Node root = new Parser(tokens).Parse();
-            return Normalize(root.EvaluateNode(context));
+            return EvaluateParsed(mode);
         }
         catch (ParseFailure)
         {
             return CalculationResult.Fail(CalcError.Malformed);
         }
     }
+
+    private CalculationResult EvaluateParsed(AngleMode mode) =>
+        Normalize(new Parser(tokens).Parse().EvaluateNode(mode));
 
     private CalculationResult Normalize(CalculationResult result)
     {
@@ -28,11 +30,11 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
 
     private sealed class Parser(IReadOnlyList<Token> tokens)
     {
-        private int _position;
+        private int position;
 
-        private Token Current => tokens[_position];
+        private Token Current => tokens[position];
 
-        private bool AtEnd => _position >= tokens.Count;
+        private bool AtEnd => position >= tokens.Count;
 
         public Node Parse()
         {
@@ -41,15 +43,15 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
         }
 
         private Node ParseExpression() =>
-            ParseBinaryLevel(ParseTerm, OperatorKind.Add, OperatorKind.Sub);
+            ParseBinaryLevel(ParseTerm, OperatorKind.Add, OperatorKind.Subtract);
 
         private Node ParseTerm() =>
-            ParseBinaryLevel(ParseUnary, OperatorKind.Mul, OperatorKind.Div, OperatorKind.Mod);
+            ParseBinaryLevel(ParseUnary, OperatorKind.Multiply, OperatorKind.Divide, OperatorKind.Modulo);
 
         private Node ParseBinaryLevel(Func<Node> parseNext, params OperatorKind[] operators)
         {
             Node left = parseNext();
-            while (TryTakeAny(operators, out OperatorKind taken))
+            while (TakeAny(operators) is { } taken)
             {
                 Node right = parseNext();
                 left = new BinaryNode(taken, left, ResolvePercent(taken, left, right));
@@ -58,24 +60,24 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
         }
 
         private Node ResolvePercent(OperatorKind op, Node left, Node right) =>
-            op is OperatorKind.Add or OperatorKind.Sub
+            op is OperatorKind.Add or OperatorKind.Subtract
             && right is PercentNode { Previous: null } bare
                 ? new PercentNode(bare.Inner, left)
                 : right;
 
         private Node ParseUnary()
         {
-            if (!At(OperatorKind.Sub)) return ParsePower();
-            _position++;
+            if (!At(OperatorKind.Subtract)) return ParsePower();
+            position++;
             return new UnaryMinusNode(ParseUnary());
         }
 
         private Node ParsePower()
         {
             Node baseNode = ParsePostfix();
-            if (!At(OperatorKind.Pow)) return baseNode;
-            _position++;
-            return new BinaryNode(OperatorKind.Pow, baseNode, ParseUnary());
+            if (!At(OperatorKind.Power)) return baseNode;
+            position++;
+            return new BinaryNode(OperatorKind.Power, baseNode, ParseUnary());
         }
 
         private Node ParsePostfix()
@@ -92,7 +94,7 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
 
         private Node ApplyPostfix(Token postfix, Node operand)
         {
-            _position++;
+            position++;
             return postfix.Kind == TokenKind.Percent
                 ? new PercentNode(operand, null)
                 : new FunctionNode(postfix.FunctionKind!.Value, operand);
@@ -101,8 +103,7 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
         private Node ParsePrimary()
         {
             if (AtEnd) throw new ParseFailure();
-            Token current = Current;
-            _position++;
+            Token current = Take();
             return current.Kind switch
             {
                 TokenKind.Number or TokenKind.Constant => new NumberNode(current.NumericValue!.Value),
@@ -112,10 +113,17 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
             };
         }
 
+        private Token Take()
+        {
+            Token current = Current;
+            position++;
+            return current;
+        }
+
         private Node ParseFunctionCall(FunctionKind kind)
         {
             if (AtEnd || Current.Kind != TokenKind.OpenParen) throw new ParseFailure();
-            _position++;
+            Take();
             return new FunctionNode(kind, ParseParenthesized());
         }
 
@@ -123,24 +131,20 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
         {
             Node inner = ParseExpression();
             if (AtEnd || Current.Kind != TokenKind.CloseParen) throw new ParseFailure();
-            _position++;
+            Take();
             return inner;
         }
 
         private bool At(OperatorKind kind) =>
             !AtEnd && Current.Kind == TokenKind.Operator && Current.OperatorKind == kind;
 
-        private bool TryTakeAny(OperatorKind[] candidates, out OperatorKind taken)
+        private OperatorKind? TakeAny(OperatorKind[] candidates)
         {
-            foreach (OperatorKind candidate in candidates)
-            {
-                if (!At(candidate)) continue;
-                taken = Current.OperatorKind!.Value;
-                _position++;
-                return true;
-            }
-            taken = OperatorKind.Add;
-            return false;
+            OperatorKind? taken = candidates
+                .Select(kind => At(kind) ? (OperatorKind?)kind : null)
+                .FirstOrDefault(candidate => candidate is not null);
+            if (taken is not null) position++;
+            return taken;
         }
     }
 }

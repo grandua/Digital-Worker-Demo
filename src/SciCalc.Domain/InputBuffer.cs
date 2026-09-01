@@ -4,17 +4,18 @@ namespace SciCalc.Domain;
 
 public sealed class InputBuffer
 {
+    // TODO(smell): LOW — underscore field names (_tokens, _numberText).
     private readonly List<Token> _tokens = [];
-    private readonly Dictionary<OperatorKind, string> _operatorNames = new()
+    private readonly Dictionary<OperatorKind, string> operatorText = new()
     {
         [OperatorKind.Add] = "+",
-        [OperatorKind.Sub] = "−",
-        [OperatorKind.Mul] = "×",
-        [OperatorKind.Div] = "÷",
+        [OperatorKind.Sub] = "-",
+        [OperatorKind.Mul] = "*",
+        [OperatorKind.Div] = "/",
         [OperatorKind.Pow] = "^",
         [OperatorKind.Mod] = "mod",
     };
-    private readonly Dictionary<FunctionKind, string> _functionNames = new()
+    private readonly Dictionary<FunctionKind, string> functionText = new()
     {
         [FunctionKind.Sin] = "sin",
         [FunctionKind.Cos] = "cos",
@@ -27,24 +28,28 @@ public sealed class InputBuffer
         [FunctionKind.Tanh] = "tanh",
         [FunctionKind.Log10] = "log",
         [FunctionKind.Ln] = "ln",
-        [FunctionKind.Exp] = "e^",
-        [FunctionKind.TenPow] = "10^",
+        [FunctionKind.Exp] = "exp",
+        [FunctionKind.TenPow] = "tenpow",
         [FunctionKind.Square] = "sqr",
         [FunctionKind.Cube] = "cube",
-        [FunctionKind.Sqrt] = "√",
-        [FunctionKind.Cbrt] = "∛",
-        [FunctionKind.Factorial] = "!",
+        [FunctionKind.Sqrt] = "sqrt",
+        [FunctionKind.Cbrt] = "cbrt",
         [FunctionKind.Abs] = "abs",
         [FunctionKind.Reciprocal] = "recip",
     };
-    private readonly Dictionary<ConstantKind, string> _constantNames = new()
+    private readonly Dictionary<ConstantKind, string> constantText = new()
     {
         [ConstantKind.Pi] = "π",
         [ConstantKind.E] = "e",
     };
     private string? _numberText;
 
-    public IReadOnlyList<Token> Tokens => _tokens;
+    public IReadOnlyList<Token> Tokens => _tokens.AsReadOnly();
+
+    // TODO(review): MEDIUM - derive overflow from number text; mutable cached state becomes stale after RemoveLastToken.
+    public bool HasLiteralOverflow { get; private set; }
+
+    public string? EditingNumber => _numberText;
 
     public void Add(Token token)
     {
@@ -66,34 +71,34 @@ public sealed class InputBuffer
     {
         if (_tokens.Count == 0) return;
         _tokens.RemoveAt(_tokens.Count - 1);
-        _numberText = null;
+        _numberText = _tokens.Count > 0 && _tokens[^1].Kind == TokenKind.Number
+            ? _tokens[^1].NumericValue!.Value.ToString(CultureInfo.InvariantCulture)
+            : null;
     }
 
     public void Clear()
     {
         _tokens.Clear();
         _numberText = null;
+        HasLiteralOverflow = false;
     }
 
-    public string Text()
-    {
-        var builder = new System.Text.StringBuilder();
-        for (int index = 0; index < _tokens.Count; index++)
-            builder.Append(Render(_tokens[index], index));
-        return builder.ToString();
-    }
+    public string Text() => string.Concat(_tokens.Select((token, index) => Render(token, index)));
 
     private string Render(Token token, int index) => token.Kind switch
     {
         TokenKind.Number => RenderNumber(token, index),
-        TokenKind.Operator => _operatorNames[token.OperatorKind!.Value],
-        TokenKind.Function => _functionNames[token.FunctionKind!.Value],
+        TokenKind.Operator => operatorText[token.OperatorKind!.Value],
+        TokenKind.Function => FunctionNeutralText(token.FunctionKind!.Value),
         TokenKind.OpenParen => "(",
         TokenKind.CloseParen => ")",
         TokenKind.Percent => "%",
-        TokenKind.Constant => _constantNames[token.ConstantKind!.Value],
+        TokenKind.Constant => constantText[token.ConstantKind!.Value],
         _ => string.Empty,
     };
+
+    private string FunctionNeutralText(FunctionKind kind) =>
+        kind == FunctionKind.Factorial ? "!" : functionText[kind];
 
     private string RenderNumber(Token token, int index) =>
         index == _tokens.Count - 1 && _numberText is not null
@@ -123,8 +128,17 @@ public sealed class InputBuffer
 
     private void SyncNumberToken(bool replaceLast)
     {
-        double value = double.Parse(_numberText!, CultureInfo.InvariantCulture);
+        if (!TryParseFinite(_numberText!, out double value))
+        {
+            HasLiteralOverflow = true;
+            return;
+        }
+        HasLiteralOverflow = false;
         if (replaceLast) _tokens[^1] = Token.Number(value);
         else _tokens.Add(Token.Number(value));
     }
+
+    private bool TryParseFinite(string text, out double value) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+        && double.IsFinite(value);
 }

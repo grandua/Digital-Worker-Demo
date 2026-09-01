@@ -47,7 +47,8 @@ public class MemoryTests
         Assert.True(calculator.Memory.IsNonEmpty(slot));
         calculator.Press(InputKey.AllClear);
         calculator.Press(recall);
-        Assert.Equal(Token.Number(8), Assert.Single(calculator.Buffer.Tokens));
+        Assert.Equal("8", calculator.Buffer.Text());
+        AssertPreview(calculator, 8);
         calculator.Press(clear);
         Assert.False(calculator.Memory.IsNonEmpty(slot));
         Assert.Null(calculator.Memory.Recall(slot));

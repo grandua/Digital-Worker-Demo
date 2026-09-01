@@ -5,25 +5,25 @@ namespace SciCalc.Domain;
 
 public sealed class FunctionNode(FunctionKind kind, Node argument) : Node
 {
-    public override CalculationResult EvaluateNode(EvaluationContext context)
+    public override CalculationResult EvaluateNode(AngleMode mode)
     {
-        CalculationResult arg = argument.EvaluateNode(context);
-        return arg.HasError ? arg : Apply(arg.Value!.Value, context);
+        CalculationResult arg = argument.EvaluateNode(mode);
+        return arg.HasError ? arg : Apply(arg.Value!.Value, mode);
     }
 
-    private CalculationResult Apply(double x, EvaluationContext context) => kind switch
+    private CalculationResult Apply(double x, AngleMode mode) => kind switch
     {
-        Sin or Cos or Tan => Trigonometric(x, context),
-        Asin or Acos or Atan => Inverse(x, context),
+        Sin or Cos or Tan => Trigonometric(x, mode),
+        Asin or Acos or Atan => Inverse(x, mode),
         Sinh or Cosh or Tanh => Hyperbolic(x),
         Log10 or Ln => Logarithm(x),
         Sqrt or Reciprocal or Factorial => Guarded(x),
         _ => Plain(x),
     };
 
-    private CalculationResult Trigonometric(double x, EvaluationContext context)
+    private CalculationResult Trigonometric(double x, AngleMode mode)
     {
-        double input = context.Mode == AngleMode.Degrees ? context.ToRadians(x) : x;
+        double input = mode == AngleMode.Degrees ? mode.ToRadians(x) : x;
         return Ok(kind switch
         {
             Sin => Math.Sin(input),
@@ -32,7 +32,7 @@ public sealed class FunctionNode(FunctionKind kind, Node argument) : Node
         });
     }
 
-    private CalculationResult Inverse(double x, EvaluationContext context)
+    private CalculationResult Inverse(double x, AngleMode mode)
     {
         if (kind != Atan && Math.Abs(x) > 1) return Fail(CalcError.AsinAcosOutOfRange);
         double radians = kind switch
@@ -41,7 +41,7 @@ public sealed class FunctionNode(FunctionKind kind, Node argument) : Node
             Acos => Math.Acos(x),
             _ => Math.Atan(x),
         };
-        return Ok(context.Mode == AngleMode.Degrees ? context.ToDegrees(radians) : radians);
+        return Ok(mode == AngleMode.Degrees ? mode.ToDegrees(radians) : radians);
     }
 
     private CalculationResult Hyperbolic(double x) => Ok(kind switch
@@ -64,12 +64,12 @@ public sealed class FunctionNode(FunctionKind kind, Node argument) : Node
 
     private CalculationResult FactorialOf(double x)
     {
-        if (x < 0 || x != Math.Floor(x)) return Fail(CalcError.InvalidFactorial);
+        if (IsInvalidFactorial(x)) return Fail(CalcError.InvalidFactorial);
         if (x > 170) return Fail(CalcError.Overflow);
-        double acc = 1;
-        for (int n = 2; n <= (int)x; n++) acc *= n;
-        return Ok(acc);
+        return Ok(Enumerable.Range(2, Math.Max(0, (int)x - 1)).Aggregate(1.0, (acc, n) => acc * n));
     }
+
+    private bool IsInvalidFactorial(double x) => x < 0 || x != Math.Floor(x);
 
     private CalculationResult Plain(double x) => Ok(kind switch
     {

@@ -20,7 +20,7 @@ public class PercentTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(AngleMode.Degrees, null));
+        CalculationResult result = expression.Evaluate(AngleMode.Degrees);
 
         TestTokens.AssertClose(result, expected);
     }
@@ -34,7 +34,7 @@ public class PercentTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext());
+        CalculationResult result = expression.Evaluate(AngleMode.Radians);
 
         Assert.Equal(expected, result.Error);
         Assert.Null(result.Value);

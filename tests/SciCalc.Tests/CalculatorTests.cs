@@ -7,13 +7,13 @@ public class CalculatorTests
 {
     [Theory]
     [InlineData("12+3", "12+3")]
-    [InlineData("5*3", "5×3")]
-    [InlineData("8-2", "8−2")]
-    [InlineData("9/3", "9÷3")]
+    [InlineData("5*3", "5*3")]
+    [InlineData("8-2", "8-2")]
+    [InlineData("9/3", "9/3")]
     [InlineData("2^3", "2^3")]
     [InlineData("(1+2)", "(1+2)")]
     [InlineData("50%", "50%")]
-    [InlineData("π*2", "π×2")]
+    [InlineData("π*2", "π*2")]
     public void RendersPressedKeysAsDisplayText(string keys, string expected)
     {
         Calculator calculator = new Calculator().PressAll(keys);
@@ -78,29 +78,25 @@ public class CalculatorTests
     }
 
     [Fact]
-    public void SquareKeyTranslatesToWrappedFunctionTokenSequence()
+    public void SquareKeyWrapsBufferInFunctionCall()
     {
         Calculator calculator = new Calculator().PressAll("5");
 
         calculator.Press(InputKey.Square);
 
-        Assert.Equal(
-            new Token[]
-            {
-                Token.Function(FunctionKind.Square),
-                Token.OpenParen(),
-                Token.Number(5),
-                Token.CloseParen(),
-            },
-            calculator.Buffer.Tokens);
+        Assert.Equal("sqr(5)", calculator.Buffer.Text());
+        AssertPreview(calculator, 25);
     }
 
     [Fact]
-    public void DigitPressesMergeIntoSingleNumberToken()
+    public void DigitPressesMergeIntoSingleNumber()
     {
         Calculator calculator = new Calculator().PressAll("12");
 
-        Assert.Equal(new Token[] { Token.Number(12) }, calculator.Buffer.Tokens);
+        Assert.Equal("12", calculator.Buffer.Text());
+        calculator.PressAll("3");
+        Assert.Equal("123", calculator.Buffer.Text());
+        AssertPreview(calculator, 123);
     }
 
     [Theory]
@@ -135,9 +131,6 @@ public class CalculatorTests
         HistoryEntry entry = Assert.Single(calculator.History);
         Assert.Equal("2+3", entry.ExpressionText);
         Assert.Equal(5.0, entry.ResultValue);
-        Assert.Equal(
-            new Token[] { Token.Number(2), Token.Operator(OperatorKind.Add), Token.Number(3) },
-            entry.Tokens);
     }
 
     [Fact]
@@ -156,7 +149,7 @@ public class CalculatorTests
         Calculator calculator = new Calculator();
         calculator.Press(InputKey.Ans);
 
-        Assert.Equal(new Token[] { Token.Number(0) }, calculator.Buffer.Tokens);
+        Assert.Equal("0", calculator.Buffer.Text());
         Assert.Equal(0.0, calculator.Preview);
     }
 
@@ -168,7 +161,7 @@ public class CalculatorTests
         Assert.True(calculator.Locked);
         Assert.Equal(CalcError.DivisionByZero, calculator.ActiveError);
         calculator.PressAll("2+3");
-        Assert.Equal("1÷0", calculator.Buffer.Text());
+        Assert.Equal("1/0", calculator.Buffer.Text());
         Assert.True(calculator.Locked);
         Assert.Equal(CalcError.DivisionByZero, calculator.ActiveError);
         calculator.Press(InputKey.AllClear);
@@ -258,6 +251,116 @@ public class CalculatorTests
         calculator.Press(InputKey.DegRadToggle);
         Assert.Equal(AngleMode.Radians, calculator.Mode);
         TestTokens.AssertClose(CalculationResult.Ok(calculator.Preview!.Value), Math.Sin(90));
+    }
+
+    [Fact]
+    public void AbsKeyWrapsBufferedOperand()
+    {
+        Calculator calculator = new Calculator().PressAll("5");
+
+        calculator.Press(InputKey.Abs);
+
+        Assert.Equal("abs(5)", calculator.Buffer.Text());
+        AssertPreview(calculator, 5);
+    }
+
+    [Fact]
+    public void DeleteOperatorThenTypingContinuesNumberEntry()
+    {
+        Calculator calculator = new Calculator().PressAll("12+3");
+
+        calculator.Press(InputKey.Delete);
+        calculator.Press(InputKey.Delete);
+        calculator.PressAll("3");
+
+        Assert.Equal("123", calculator.Buffer.Text());
+        AssertPreview(calculator, 123);
+    }
+
+    [Fact]
+    public void OversizedLiteralLocksWithOverflow()
+    {
+        Calculator calculator = new Calculator().PressAll(new string('9', 309));
+
+        Assert.True(calculator.Locked);
+        Assert.Equal(CalcError.Overflow, calculator.ActiveError);
+        Assert.Null(calculator.Preview);
+    }
+
+    [Fact]
+    public void OversizedLiteralRecoversOnlyViaAllClear()
+    {
+        Calculator calculator = new Calculator().PressAll(new string('9', 309));
+
+        calculator.Press(InputKey.Digit5);
+
+        Assert.True(calculator.Locked);
+        calculator.Press(InputKey.AllClear);
+        Assert.False(calculator.Locked);
+        Assert.Null(calculator.ActiveError);
+        Assert.Empty(calculator.Buffer.Tokens);
+    }
+
+    [Fact]
+    public void Boundary308DigitLiteralStaysEditable()
+    {
+        Calculator calculator = new Calculator().PressAll(new string('9', 308));
+
+        Assert.False(calculator.Locked);
+        Assert.Null(calculator.ActiveError);
+        Assert.NotNull(calculator.Preview);
+    }
+
+    [Theory]
+    [InlineData("2", 2.0)]
+    [InlineData("2+", null)]
+    [InlineData("2+3", 5.0)]
+    [InlineData("2+3*", null)]
+    [InlineData("2+3*4", 14.0)]
+    [InlineData("2+3*4=", 14.0)]
+    [InlineData("(", null)]
+    [InlineData("(2+3)", 5.0)]
+    public void PreviewTracksEveryKeypress(string keys, double? expected)
+    {
+        Calculator calculator = new Calculator().PressAll(keys);
+
+        if (expected is { } value)
+            AssertPreview(calculator, value);
+        else
+            Assert.Null(calculator.Preview);
+    }
+
+    [Fact]
+    public void AngleRoundTripDegRadDegKeepsTrigConsistent()
+    {
+        Calculator calculator = new Calculator();
+        Assert.Equal(AngleMode.Radians, calculator.Mode);
+
+        calculator.Press(InputKey.DegRadToggle);
+        Assert.Equal(AngleMode.Degrees, calculator.Mode);
+        AssertPreview(SinOf(calculator, "90"), 1);
+
+        calculator.Press(InputKey.AllClear);
+        calculator.Press(InputKey.DegRadToggle);
+        Assert.Equal(AngleMode.Radians, calculator.Mode);
+        calculator.Press(InputKey.Sin);
+        calculator.Press(InputKey.Pi);
+        calculator.PressAll("/2");
+        calculator.Press(InputKey.CloseParen);
+        AssertPreview(calculator, 1);
+
+        calculator.Press(InputKey.AllClear);
+        calculator.Press(InputKey.DegRadToggle);
+        Assert.Equal(AngleMode.Degrees, calculator.Mode);
+        AssertPreview(SinOf(calculator, "90"), 1);
+    }
+
+    private static Calculator SinOf(Calculator calculator, string angle)
+    {
+        calculator.Press(InputKey.Sin);
+        calculator.PressAll(angle);
+        calculator.Press(InputKey.CloseParen);
+        return calculator;
     }
 
     private static void AssertPreview(Calculator calculator, double expected)

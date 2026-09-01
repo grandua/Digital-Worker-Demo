@@ -6,10 +6,12 @@ namespace SciCalc.Tests;
 public class FunctionTests
 {
     [Theory]
+    [InlineData(AngleMode.Degrees, "sin(90)", 1)]
     [InlineData(AngleMode.Degrees, "sin(30)", 0.5)]
     [InlineData(AngleMode.Radians, "sin(π/6)", 0.5)]
     [InlineData(AngleMode.Radians, "sin(π/2)", 1)]
     [InlineData(AngleMode.Radians, "cos(0)", 1)]
+    [InlineData(AngleMode.Radians, "cos(sin(0))", 1)]
     [InlineData(AngleMode.Radians, "cos(π)", -1)]
     [InlineData(AngleMode.Degrees, "tan(45)", 1)]
     [InlineData(AngleMode.Radians, "tan(0)", 0)]
@@ -28,7 +30,7 @@ public class FunctionTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(mode, null));
+        CalculationResult result = expression.Evaluate(mode);
 
         TestTokens.AssertClose(result, expected);
     }
@@ -75,7 +77,7 @@ public class FunctionTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(AngleMode.Degrees, null));
+        CalculationResult result = expression.Evaluate(AngleMode.Degrees);
 
         TestTokens.AssertClose(result, expected);
     }
@@ -106,7 +108,7 @@ public class FunctionTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(AngleMode.Degrees, null));
+        CalculationResult result = expression.Evaluate(AngleMode.Degrees);
 
         Assert.Equal(expected, result.Error);
         Assert.Null(result.Value);
@@ -120,7 +122,7 @@ public class FunctionTests
     {
         MathExpression expression = TestTokens.Parse($"{operand}!");
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(AngleMode.Degrees, null));
+        CalculationResult result = expression.Evaluate(AngleMode.Degrees);
 
         Assert.False(result.HasError, $"unexpected error {result.Error}");
         if (operand == 170) Assert.True(result.Value! > 1e305);
@@ -133,7 +135,7 @@ public class FunctionTests
     {
         MathExpression expression = TestTokens.Parse("sinh(1)");
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext(mode, null));
+        CalculationResult result = expression.Evaluate(mode);
 
         TestTokens.AssertClose(result, 1.1752011936438014);
     }

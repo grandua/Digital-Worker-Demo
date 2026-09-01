@@ -1,6 +1,10 @@
 # Digital-Worker-Demo
 Repo connected to Digital Worker Demo agent for demos, playing, learning and experimentation
 
+# SciCalc Demo App
+
+This repo contains SciCalc, a scientific calculator built with .NET 10 MAUI Blazor Hybrid and xUnit (solution `SciCalc.sln`, projects under `src/` and `tests/`). See [src/SciCalc/README.md](src/SciCalc/README.md) for the project layout, verification commands, MAUI workload caveat, platform targets, and behavior decisions. Quick verification: `dotnet test` at the repo root (Domain + tests run on net10.0 without MAUI workloads; do not pass `--nologo` on SDK 10.0.302).
+
 
 # Digital Worker User Guide
 

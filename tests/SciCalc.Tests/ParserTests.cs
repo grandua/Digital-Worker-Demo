@@ -20,7 +20,7 @@ public class ParserTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext());
+        CalculationResult result = expression.Evaluate(AngleMode.Radians);
 
         AssertClose(result, expected);
     }
@@ -40,7 +40,7 @@ public class ParserTests
     {
         MathExpression expression = TestTokens.Parse(source);
 
-        CalculationResult result = expression.Evaluate(new EvaluationContext());
+        CalculationResult result = expression.Evaluate(AngleMode.Radians);
 
         Assert.Equal(expected, result.Error);
         Assert.Null(result.Value);

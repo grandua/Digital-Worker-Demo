@@ -75,10 +75,10 @@ public static class TestTokens
     private static readonly Dictionary<char, OperatorKind> Operators = new()
     {
         ['+'] = OperatorKind.Add,
-        ['-'] = OperatorKind.Sub,
-        ['*'] = OperatorKind.Mul,
-        ['/'] = OperatorKind.Div,
-        ['^'] = OperatorKind.Pow,
+        ['-'] = OperatorKind.Subtract,
+        ['*'] = OperatorKind.Multiply,
+        ['/'] = OperatorKind.Divide,
+        ['^'] = OperatorKind.Power,
     };
 
     private static readonly Dictionary<char, Token> Symbols = new()
@@ -93,7 +93,7 @@ public static class TestTokens
 
     private static readonly Dictionary<string, Token> Words = new()
     {
-        ["mod"] = Token.Operator(OperatorKind.Mod),
+        ["mod"] = Token.Operator(OperatorKind.Modulo),
         ["π"] = Token.Constant(ConstantKind.Pi, Math.PI),
         ["e"] = Token.Constant(ConstantKind.E, Math.E),
         ["sin"] = Token.Function(FunctionKind.Sin),

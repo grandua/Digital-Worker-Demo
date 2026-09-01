@@ -105,7 +105,7 @@ public sealed class Calculator
     {
         if (Locked) return;
         Buffer.Clear();
-        Buffer.AddRange(entry.Tokens);
+        foreach (Token token in entry.Tokens) Buffer.Add(token);
     }
 
     private void HandleLockedPress(InputKey key)
@@ -161,7 +161,7 @@ public sealed class Calculator
         Buffer.Clear();
         Buffer.Add(Token.Function(function));
         Buffer.Add(Token.OpenParen());
-        Buffer.AddRange(inner.Append(Token.CloseParen()));
+        foreach (Token token in inner.Append(Token.CloseParen())) Buffer.Add(token);
     }
 
     private void InsertAnswer() => Buffer.Add(Token.Number(LastAnswer ?? 0));

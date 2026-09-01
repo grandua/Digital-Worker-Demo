@@ -9,11 +9,11 @@ public sealed class InputBuffer
     private readonly Dictionary<OperatorKind, string> operatorText = new()
     {
         [OperatorKind.Add] = "+",
-        [OperatorKind.Sub] = "-",
-        [OperatorKind.Mul] = "*",
-        [OperatorKind.Div] = "/",
-        [OperatorKind.Pow] = "^",
-        [OperatorKind.Mod] = "mod",
+        [OperatorKind.Subtract] = "-",
+        [OperatorKind.Multiply] = "*",
+        [OperatorKind.Divide] = "/",
+        [OperatorKind.Power] = "^",
+        [OperatorKind.Modulo] = "mod",
     };
     private readonly Dictionary<FunctionKind, string> functionText = new()
     {

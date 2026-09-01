@@ -50,9 +50,18 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
         {
             Node left = parseNext();
             while (TryTakeAny(operators, out OperatorKind taken))
-                left = new BinaryNode(taken, left, parseNext());
+            {
+                Node right = parseNext();
+                left = new BinaryNode(taken, left, ResolvePercent(taken, left, right));
+            }
             return left;
         }
+
+        private Node ResolvePercent(OperatorKind op, Node left, Node right) =>
+            op is OperatorKind.Add or OperatorKind.Sub
+            && right is PercentNode { Previous: null } bare
+                ? new PercentNode(bare.Inner, left)
+                : right;
 
         private Node ParseUnary()
         {
@@ -63,10 +72,30 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
 
         private Node ParsePower()
         {
-            Node baseNode = ParsePrimary();
+            Node baseNode = ParsePostfix();
             if (!At(OperatorKind.Pow)) return baseNode;
             _position++;
             return new BinaryNode(OperatorKind.Pow, baseNode, ParseUnary());
+        }
+
+        private Node ParsePostfix()
+        {
+            Node node = ParsePrimary();
+            while (!AtEnd && IsPostfix(Current))
+                node = ApplyPostfix(Current, node);
+            return node;
+        }
+
+        private bool IsPostfix(Token token) =>
+            token.Kind == TokenKind.Percent
+            || (token.Kind == TokenKind.Function && token.FunctionKind == FunctionKind.Factorial);
+
+        private Node ApplyPostfix(Token postfix, Node operand)
+        {
+            _position++;
+            return postfix.Kind == TokenKind.Percent
+                ? new PercentNode(operand, null)
+                : new FunctionNode(postfix.FunctionKind!.Value, operand);
         }
 
         private Node ParsePrimary()
@@ -76,11 +105,18 @@ public sealed class MathExpression(IReadOnlyList<Token> tokens)
             _position++;
             return current.Kind switch
             {
-                TokenKind.Number => new NumberNode(current.NumericValue!.Value),
-                TokenKind.Constant => new NumberNode(current.NumericValue!.Value),
+                TokenKind.Number or TokenKind.Constant => new NumberNode(current.NumericValue!.Value),
+                TokenKind.Function => ParseFunctionCall(current.FunctionKind!.Value),
                 TokenKind.OpenParen => ParseParenthesized(),
                 _ => throw new ParseFailure(),
             };
+        }
+
+        private Node ParseFunctionCall(FunctionKind kind)
+        {
+            if (AtEnd || Current.Kind != TokenKind.OpenParen) throw new ParseFailure();
+            _position++;
+            return new FunctionNode(kind, ParseParenthesized());
         }
 
         private Node ParseParenthesized()

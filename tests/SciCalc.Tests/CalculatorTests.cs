@@ -39,6 +39,62 @@ public class CalculatorTests
         Assert.Equal("5!", calculator.Buffer.Text());
     }
 
+    [Theory]
+    [InlineData(InputKey.Square, "5", 25)]
+    [InlineData(InputKey.Cube, "2", 8)]
+    [InlineData(InputKey.Sqrt, "9", 3)]
+    [InlineData(InputKey.Cbrt, "8", 2)]
+    [InlineData(InputKey.Reciprocal, "4", 0.25)]
+    [InlineData(InputKey.Exp, "2", 7.38905609893065)]
+    [InlineData(InputKey.TenPow, "2", 100)]
+    public void PostfixKeysEvaluateByWrappingBufferIntoFunctionCall(InputKey key, string digits, double expected)
+    {
+        Calculator calculator = new Calculator().PressAll(digits);
+
+        calculator.Press(key);
+
+        AssertPreview(calculator, expected);
+    }
+
+    [Fact]
+    public void PostfixKeyWrapsWholeBufferExpression()
+    {
+        Calculator calculator = new Calculator().PressAll("2+3");
+
+        calculator.Press(InputKey.Square);
+
+        AssertPreview(calculator, 25);
+    }
+
+    [Fact]
+    public void RepeatedPostfixKeyNestsFunctions()
+    {
+        Calculator calculator = new Calculator().PressAll("5");
+
+        calculator.Press(InputKey.Square);
+        calculator.Press(InputKey.Square);
+
+        AssertPreview(calculator, 625);
+    }
+
+    [Fact]
+    public void SquareKeyTranslatesToWrappedFunctionTokenSequence()
+    {
+        Calculator calculator = new Calculator().PressAll("5");
+
+        calculator.Press(InputKey.Square);
+
+        Assert.Equal(
+            new Token[]
+            {
+                Token.Function(FunctionKind.Square),
+                Token.OpenParen(),
+                Token.Number(5),
+                Token.CloseParen(),
+            },
+            calculator.Buffer.Tokens);
+    }
+
     [Fact]
     public void DigitPressesMergeIntoSingleNumberToken()
     {
@@ -95,12 +151,13 @@ public class CalculatorTests
     }
 
     [Fact]
-    public void AnsKeyIsIgnoredBeforeFirstAnswer()
+    public void AnsKeyInsertsZeroBeforeFirstAnswer()
     {
         Calculator calculator = new Calculator();
         calculator.Press(InputKey.Ans);
 
-        Assert.Empty(calculator.Buffer.Tokens);
+        Assert.Equal(new Token[] { Token.Number(0) }, calculator.Buffer.Tokens);
+        Assert.Equal(0.0, calculator.Preview);
     }
 
     [Fact]

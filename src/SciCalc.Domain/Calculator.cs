@@ -139,14 +139,26 @@ public sealed class Calculator
 
     private void AppendFunction(FunctionKind function)
     {
+        if (IsPostfixWrapKey(function)) { WrapBufferInFunction(function); return; }
         Buffer.Add(Token.Function(function));
         if (function != FunctionKind.Factorial) Buffer.Add(Token.OpenParen());
     }
 
-    private void InsertAnswer()
+    private bool IsPostfixWrapKey(FunctionKind function) =>
+        function is FunctionKind.Square or FunctionKind.Cube or FunctionKind.Sqrt
+            or FunctionKind.Cbrt or FunctionKind.Reciprocal or FunctionKind.Exp or FunctionKind.TenPow;
+
+    private void WrapBufferInFunction(FunctionKind function)
     {
-        if (LastAnswer is { } answer) Buffer.Add(Token.Number(answer));
+        List<Token> inner = [.. Buffer.Tokens];
+        Buffer.Clear();
+        Buffer.Add(Token.Function(function));
+        Buffer.Add(Token.OpenParen());
+        foreach (Token token in inner) Buffer.Add(token);
+        Buffer.Add(Token.CloseParen());
     }
+
+    private void InsertAnswer() => Buffer.Add(Token.Number(LastAnswer ?? 0));
 
     private void StoreMemory(MemorySlotId slot)
     {

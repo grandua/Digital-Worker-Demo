@@ -1,5 +1,250 @@
 # User Prompt
 
+Build a scientific calculator app "SciCalc" that runs natively on Windows, macOS, iOS, and Android from a single .NET MAUI Blazor Hybrid project. Keypad-driven scientific calculator: +, -, *, / with precedence; parentheses (unlimited depth, unmatched detection); scientific functions (sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, log10, ln, e^x, 10^x, x², x³, √, ∛, x^y, n!, |x|, 1/x, mod); constants π, e; DEG/RAD toggle visible in UI; unary minus context; right-associative `^`; percent semantics (50% → 0.5, "200 + 10%" → 220); history of last 10 evaluated expressions (tap to re-insert); memory M1/M2/M3 with store/recall/clear + non-empty indicator; ANS key; AC/DEL; error handling (div-zero, sqrt of negative, ln of non-positive, bad factorial, asin/acos |x|>1, overflow, malformed) with "Error" + reason, lockout until AC; two-line display (input line + last result / live preview). Tech: .NET 10, .NET MAUI Blazor Hybrid (BlazorWebView + Razor), xUnit, NO external NuGets — hand-written parser/evaluator in Domain layer; no DataTable.Compute / Roslyn. Windows primary target; mobile/mac must compile but need not be device-tested.
+
+# High-Level Plan: SciCalc (.NET MAUI Blazor Hybrid) — Resume Pass
+
+> This updates the original SciCalc plan below for the committed scaffold at `732575b`.
+
+## 1. Architecture / Approach Overview
+
+Three projects in one solution (already scaffolded):
+
+- **`SciCalc.Domain`** (net10.0 class library, no external deps): the whole calculator engine — hand-written parser to an AST, evaluator, session behavior (input buffer, history, memory, ANS, angle mode, error lockout). Rich Domain Model: behavior lives on entities/value objects.
+- **`SciCalc`** (single MAUI Blazor Hybrid project, references `SciCalc.Domain`): BlazorWebView + `CalculatorPage.razor`; pure presentation — buttons send `InputKey` presses, render `Calculator` state.
+- **`SciCalc.Tests`** (xUnit, references `SciCalc.Domain` only): the test target.
+
+**Environment constraint:** .NET 10 SDK present on Linux, but **MAUI workloads are NOT installed**. The MAUI csproj may fail `dotnet build` with missing-workload errors — acceptable; it must not block verification. All logic verification runs via `dotnet test` on Domain + Tests (net10.0).
+
+## 2. Existing State vs. Gap Analysis (from `732575b`)
+
+| Exists | Gap to close |
+|---|---|
+| `Token`, `TokenKind`, `OperatorKind`, `FunctionKind`, `ConstantKind`, `AngleMode`, `MemorySlotId`, `InputKey` (full key surface incl. all functions/memory keys) | Nothing — enums are complete |
+| Parser: precedence for +,-,*,/,mod; unary minus; right-assoc `^`; paren match; `BinaryNode`(+,-,*,/, %, pow with zero-division guard), `UnaryMinusNode`, `NumberNode` | **Functions**: `FunctionKind` not yet routed. Add `FunctionNode` + parser branch for `TokenKind.Function` (function consumes following `(...)` arg). **Postfix level missing**: `ParsePower` calls `ParsePrimary` directly; insert `ParsePostfix` between them to handle `!` (factorial) and `%` as postfix operators per the grammar in §7 |
+| `Token.Percent()` factory exists | **Percent semantics**: parse-time handling — `p/100` standalone; vs preceding operand for +/− (200 + 10% → 220) |
+| `TokenKind.Constant` handled as `NumberNode` today | Fine as-is (π/e are plain numbers at eval time); tests must confirm |
+| `CalcError` enum | Verify codes: `AsinAcosOutOfRange`, `InvalidFactorial`, `NegativeSqrt`, `NonPositiveLog` — `FunctionNode` maps each function's domain violation |
+| `EvaluationContext(AngleMode, double? Ans)` | Trig angle conversion (`ToRadians`/`ToDegrees`) used by `FunctionNode` |
+| Test scaffolds `ParserTests`, `EvaluatorTests`, `TestTokens` (key→token mapping helpers) | Extend `TestTokens` with function/percent tokens; fill in all §10 tests |
+| MAUI app shell (`MauiProgram`, `App`, `MainPage`, empty `CalculatorPage`) | UI implementation |
+| Nothing for session | **New**: `Calculator` aggregate, `InputBuffer`, `MemoryBank`, `HistoryEntry` |
+
+## 3. New/Extended Classes Planned
+
+| Class | Responsibilities | State/Fields | Methods (≤3 params; ctor exempt) |
+|---|---|---|---|
+| `Calculator` (aggregate root) | Session state machine: buffer, history, memory, ANS, angle mode, preview, error lockout | `InputBuffer Buffer`, `MemoryBank Memory`, `List<HistoryEntry> History`, `AngleMode Mode`, `CalculationResult LastAnswer`, `CalcError? ActiveError`, `bool Locked`, `CalculationResult Preview` | `Press(InputKey)` — single entry point; `ToggleAngleMode()` |
+| `InputBuffer` (entity) | Holds token sequence being typed; DEL semantics | `List<Token> Tokens` | `Add(Token)`, `RemoveLastToken()`, `Clear()`, `Text()` |
+| `MathExpression` (existing) | Extend parser: `TokenKind.Function` branch creating `FunctionNode`; `%` postfix handling; existing precedence/parenthesis logic preserved | token list | `Evaluate(EvaluationContext)` |
+| `FunctionNode` (new Node) | One-arg function evaluation with per-function domain checks + angle conversion | `FunctionKind Kind`, `Node Arg` | `EvaluateNode(EvaluationContext)` |
+| `PercentNode` (optional; else in-parser rewrite) | Contextual percent (baseline scale or literal /100) | `Node Base` | `EvaluateNode(EvaluationContext)` — simpler: rewrite to `BinaryNode(Mul, base, NumberNode(0.01))` except +/− context |
+| `EvaluationContext` (existing VO) | Mode + ANS | add `ToRadians`/`ToDegrees` helpers | optional `ToRadians`/`ToDegrees` helpers |
+| `MemoryBank` (entity) | 3 slots as `double?` fields | `M1/M2/M3` | `Store(value, slot)` — ≤3 params ok, `Recall(slot)`, `Clear(slot)`, `IsNonEmpty(slot)` |
+| `HistoryEntry` (VO) | Expression + result | `ExpressionText`, `Value` | — |
+
+## 4. Data Flow / Control Flow
+
+- **Preview**: every `Press` → recompute `Preview = MathExpression(Buffer).Evaluate(ctx)`; malformed in-progress → blank preview, no lockout.
+- **Postfix-style function keys** (x², x³, √, ∛, 1/x, n!): `Calculator.Press` translates these into prefix function-call tokens — e.g., pressing `Square` after `5` emits `Function(Square), OpenParen, <current buffer tokens>, CloseParen` so the parser always sees `func(expr)` form. The exact wrapping strategy is decided during `Calculator` implementation; the parser grammar remains purely prefix for functions.
+- **Equals**: success → push `HistoryEntry` (cap 10, FIFO), set `LastAnswer`, clear buffer; error → set `ActiveError` + `Locked=true`.
+- **Lockout**: `Press` early-returns for any key ≠ `AllClear` while `Locked`. UI renders "Error" title + reason subtitle from `ActiveError`.
+- **Angle**: `DegRadToggle` flips `Mode`; `FunctionNode` converts DEG↔RAD for trig & inverse-trig.
+- **Memory**: Store uses last evaluated answer (or current preview); Recall inserts `Token.Number`; per-slot isolation.
+- **History tap**: re-lex the stored `ExpressionText` into tokens and replace buffer (decided during Calculator implementation; re-lexing keeps `HistoryEntry` as pure data).
+
+## 5. Implementation Sequence
+
+1. **Parser/evaluator completion (TDD)**: add `FunctionNode`, route `TokenKind.Function`, percent semantics, all error codes; extend via `tests/SciCalc.Tests` (ParserTests/EvaluatorTests/TestTokens).
+2. **Calculator session (TDD)**: `InputBuffer`, `MemoryBank`, `HistoryEntry`, `Calculator.Press` with lockout/preview/history/ANS.
+3. **UI**: implement `CalculatorPage.razor` — keypad grid, two-line display, DEG/RAD badge, memory non-empty badges, history list; register `Calculator` singleton in `MauiProgram`.
+4. **Verification**: `dotnet test` as the quality gate; attempt MAUI csproj build, tolerate workload-missing failure; document in README if workaround needed.
+
+## 6. Assessment
+
+**Simple enough to implement from this high-level plan only.** The scaffold exists, the new surface is bounded (one aggregate + a handful of small entities + one UI component), and the test checklist here is enumerated to the level of a design. A full `/plan-and-design` workflow is **not** required.
+
+## 7. Assumptions, Decisions, Trade-offs
+
+- **Parser grammar** (existing + extension): `expr := term((+|-) term)*`; `term := unary((*|/|mod) unary)*`; `unary := '-'* power`; `power := postfix('^' unary)?` (right-assoc via recursive unary); `postfix := primary('!'/'%')*`; `primary := number | const | function '(' expr ')' | '(' expr ')'`.
+- **Percent**: parse-time handling; for the preceding `+`/`-` case apply baseline-scale, otherwise literal `p/100` (50% standalone → 0.5; 200+10% → 220). Decide exact rewrite in tests.
+- **Overflow**: Infinity/NaN normalization already in `MathExpression.Normalize`; factorial capped at 170 (boundary-tested).
+- **ANS with no history**: plan: insert `0` literal (deterministic); document in README.
+- **No persistence** across launches for history/memory.
+
+## 8. In Scope / Out of Scope
+
+- **In**: 14 MVP features, Domain-only TDD verification, UI component implemented (compiles where workloads permit).
+- **Out**: persistence, device testing for mobile/mac, packaging/Store deployment, theming.
+
+## 9. Acceptance Criteria
+
+- `dotnet test` green on Domain + Tests covering §10.
+- MAUI csproj `dotnet build` attempted; workload-missing failures tolerated and not blocking.
+- UI: DEG/RAD badge always visible; memory non-empty badges; history (≤10) tap to re-insert; error title + reason subtitle; post-error only AC accepted.
+
+## 10. Test Cases to Implement
+
+### Parser/Evaluator — precedence/associativity (partially exists; verify & extend)
+- `2+3*4` → 14; `(2+3)*4` → 20; nested parens `(((1+2)))` → 3; `2^3^2` → 512 (right-assoc); `-2+3` → 1; `2*-3` → -6; `-(-3)` → 3; `-(2+3)` → -5.
+- Percent: `50%` → 0.5; `200+10%` → 220; `200-10%` → 180; `200*10%` → 20; `200/10%` → 2000.
+- Functions: sin/cos/tan + asin/acos/atan in both RAD and DEG contexts; hyperbolic sanity values; log10/ln; e^x, 10^x; x²/x³; √/∛ (∛ of negative valid); x^y; n!; |x|; 1/x; mod (incl. negative mod).
+- Constants π/e literal values.
+- Errors mapped to codes: `/0` and `mod 0` → DivisionByZero; √ of negative → NegativeSqrt; ln/log10 of ≤0 → NonPositiveLog; asin/acos out of [-1,1] → AsinAcosOutOfRange; non-integer/negative factorial → InvalidFactorial; 171!, e^1000, 10^1000, 2^10000 → Overflow; unmatched parens, `1+`, `)(`, `++1`, empty-on-eq → Malformed.
+
+### Calculator session
+- Buffer append/delete/render; DEL last-token only; DEL on empty → no-op; AC resets buffer+lock+preview.
+- Lockout: after Eq error, only AC accepted; preview unaffected.
+- Eq on empty buffer → Malformed → lockout.
+- History: 12 evaluations → count 10, oldest evicted; tap-restore replaces buffer.
+- ANS: inserts last result literal; no previous result → 0 (documented decision).
+- Memory: store/recall/clear per-slot independence; empty-recall no-op; IsNonEmpty flips; ClearM1 untouched M2.
+- Angle toggle round-trip; sin(90)=1 in DEG, sin(π/2)=1 in RAD.
+- Live preview updates per keypress; malformed in-progress → blank preview, not lockout.
+
+---
+
+# High-Level Plan: SciCalc (.NET MAUI Blazor Hybrid)
+
+## 1. Architecture / Approach Overview
+
+Three projects in one solution; the app itself is a **single MAUI Blazor Hybrid project**:
+
+- **`SciCalc.Domain`** (net10.0 class library, no external deps): the whole calculator engine — tokenization of key presses, hand-written recursive-descent parser to an AST, evaluator, session behavior (input buffer, history, memory, ANS, angle mode, error lockout). Rich Domain Model: behavior lives on entities/value objects, not in pump-off services.
+- **`SciCalc`** (single MAUI Blazor Hybrid project, references `SciCalc.Domain`): BlazorWebView + Razor component `CalculatorPage.razor`; registers the `Calculator` aggregate as a singleton in `MauiProgram.cs`; pure presentation layer — buttons send `InputKey` presses, render state.
+- **`SciCalc.Tests`** (xUnit, references `SciCalc.Domain` only): the test target. Domain is split from the MAUI project specifically so the test project need not multi-target MAUI TFMs.
+
+Interaction: key press in Razor → `Calculator.Press(InputKey)` → mutate `InputBuffer` tokens → (live) `MathExpression.Evaluate(context)` → preview shown → Equals → history/ANS updated. Errors flip `Calculator` into locked error state; only AC clears it.
+
+## 2. New Classes Planned
+
+| Class | Responsibilities | New State/Fields | Associations | Methods (≤3 params; ctor exempt) |
+|---|---|---|---|---|
+| `Calculator` (aggregate root entity) | Session state machine: buffers key presses, routes evaluation, maintains history/memory/ANS/angle mode, error lockout | `InputBuffer Buffer`, `MemoryBank Memory`, `List<HistoryEntry> History`, `AngleMode Mode`, `CalculationResult LastAnswer`, `CalcError? ActiveError`, `bool Locked`, `CalculationResult Preview` | owns `InputBuffer`, `MemoryBank`, `HistoryEntry` list | `Press(InputKey key)` (single entry point); `ToggleAngleMode()`; private `Evaluate(Expression)` invoked on Eq/press |
+| `InputBuffer` (entity) | Holds typed token sequence being built; enforces DEL semantics | `List<Token> Tokens` | owns `Token` value objects | `Add(Token)`, `RemoveLastToken()`, `Clear()`, `Text()` -> display string |
+| `Token` (value object) | One keypad token: kind + optional numeric value/function name | `TokenKind Kind`, `double? NumericValue`, `FunctionKind? Function` | owned by `InputBuffer` / `MathExpression` | factories: `Token.Number(double)`, `Token.Operator(OperatorKind)`, `Token.Function(FunctionKind)`, `Token.OpenParen()`, `Token.CloseParen()`, `Token.Percent()`, `Token.Constant(ConstantKind, double)`; equality by kind+value |
+| `MathExpression` (value object) | Owns immutable token list + hand-written recursive-descent parse and evaluation; no identity — equality by token sequence | `IReadOnlyList<Token> Tokens` | produces `Node` AST internally | `Evaluate(EvaluationContext ctx)` -> `CalculationResult`; internal parse guards: unmatched parens, malformed → `CalcError.Malformed` |
+| `Node` (abstract AST hierarchy + common base) | Composite evaluating AST; each node type knows how to evaluate itself in context | varies per subclass | composite tree | `EvaluateNode(EvaluationContext)` per subclass: `NumberNode`, `UnaryMinusNode(inner)`, `BinaryNode(op, left, right)`, `FunctionNode(kind, arg)`, `PercentNode(previousOperand?)` |
+| `EvaluationContext` (value object) | Mode + last-answer substitution (read-only data carrier; conversion logic lives on `FunctionNode`, not here) | `AngleMode Mode`, `double? Ans` | passed into all Evaluate calls | `ToRadians(double degrees)`, `ToDegrees(double radians)` helper methods (pure convenience, no state mutation) |
+| `CalculationResult` (value object) | Success value or error reason | `double? Value`, `CalcError? Error` | returned from evaluate, stored in history | `Ok(double)`, `Fail(CalcError)` factories |
+| `CalcError` (enum) | Enumerates domain error codes | — | reason mapped to UI subtitle | members: `DivisionByZero, NegativeSqrt, NonPositiveLog, InvalidFactorial, AsinAcosOutOfRange, Overflow, Malformed` |
+| `AngleMode` (enum) | Deg/Rad | — | stored on `Calculator`, feeds `EvaluationContext` | — |
+| `MemoryBank` (entity) | Coordinates three memory slots (three `double?` fields — no separate `MemorySlot` class needed; YAGNI) | `double? M1`, `double? M2`, `double? M3` | standalone | `Store(MemorySlotId id, double v)`, `Recall(MemorySlotId id)` -> double?, `Clear(MemorySlotId id)`, `IsNonEmpty(MemorySlotId id)` |
+| `HistoryEntry` (value object) | Immutable record of expression + result | `string ExpressionText`, `double Value`, `DateTime At` | owned by `Calculator.History` (capped 10) | — |
+
+Enum kinds: `InputKey` (Digit0..Digit9, Dot, Add/Sub/Mul/Div/Pow/Mod, OpenParen/CloseParen, each function kind, Percent, Pi/E, Ans, AC, DEL, Eq, StoreM1/StoreM2/StoreM3, RecallM1/RecallM2/RecallM3, ClearM1/ClearM2/ClearM3, DegRadToggle), `TokenKind`, `OperatorKind` (+,-,*,/,^,mod), `FunctionKind`, `ConstantKind`, `MemorySlotId` (M1..M3).
+
+Behavior placement honored: parsing/evaluation live **on `MathExpression` and `Node` subclasses** (composite pattern), session semantics on **`Calculator`**, buffer editing on **`InputBuffer`**, memory on **`MemoryBank`** (three `double?` fields, no separate `MemorySlot` class) — no anemic DTOs or static helper blobs; Razor is a thin presentation shell. Percent semantics (`PercentNode`) resolved contextually at parse time using the preceding operand when adjacent to +/− and as `p/100` otherwise ("200 + 10%" → 220; "50%" alone → 0.5). Angle conversions performed by `FunctionNode`, not by `EvaluationContext`.
+
+## 3. Data Flow / Control Flow
+
+- **Key press → preview**: Razor button `@onclick` → `Calculator.Press(InputKey.Sin)` → `InputBuffer.Add(Token.Function(...))` → Calculator recomputes `Preview = MathExpression(Buffer.Tokens).Evaluate(new EvaluationContext(Mode, Ans))` (on failure preview is blank, no lockout) → Blazor re-renders top line `Buffer.Text()` and bottom line via `Preview`.
+- **Equals**: `Press(Eq)` → evaluate buffer → on success: `LastAnswer = result`, push `HistoryEntry` (cap 10, FIFO eviction), display result, clear buffer → on error: set `ActiveError`, lock input (`Locked = true`) until AC.
+- **Error lockout**: `Press(key)` early-returns for any key ≠ AC while `Locked`.
+- **Angle mode**: toggling DegRadToggle flips `Mode`; `FunctionNode.EvaluateNode` converts DEG→RAD before calling trig functions and RAD→DEG after calling inverse-trig functions, reading `AngleMode` from `EvaluationContext`.
+- **Memory**: `InputKey.StoreM1/StoreM2/StoreM3` → `Calculator.Press` routes to `MemoryBank.Store(slotId, LastAnswer/Preview)`; `RecallM1/M2/M3` → `MemoryBank.Recall(slotId)` → inserts `Token.Number(value)` into buffer; `ClearM1/M2/M3` → `MemoryBank.Clear(slotId)`; indicator rendered from `MemoryBank.IsNonEmpty`.
+- **ANS**: inserts `Token.Number(LastAnswer.Value)`.
+- **History tap**: Razor item click → buffer replaced with expression tokens (tokens re-lexed from stored `ExpressionText` — or Buffer snapshot stored in HistoryEntry) → user edits/equals.
+- **DEL**: `InputBuffer.RemoveLastToken()`; **AC**: clears buffer + error lock + preview.
+
+## 4. Integration Points / Project Structure (Greenfield)
+
+Repo contains only `README.md`, `Docs/_Current/prompt.md`, `appsettings.json`, `.gitignore`; create:
+
+```
+SciCalc.sln
+src/SciCalc.Domain/
+  AngleMode.cs, CalcError.cs, EvaluationContext.cs, CalculationResult.cs,
+  Calculator.cs, InputBuffer.cs, Token.cs, TokenKind.cs, InputKey.cs,
+  MemoryBank.cs, MemorySlotId.cs, HistoryEntry.cs,
+  MathExpression.cs, Nodes/Node.cs, Nodes/NumberNode.cs, Nodes/UnaryMinusNode.cs,
+  Nodes/BinaryNode.cs, Nodes/FunctionNode.cs, Nodes/PercentNode.cs,
+  Operators/OperatorKind.cs, Functions/FunctionKind.cs, ConstantKind.cs
+src/SciCalc/                    (MAUI Blazor Hybrid, ProjectReference → Domain)
+  MauiProgram.cs, App.cs? (per MAUI template), MainPage.razor with BlazorWebView,
+  Components/CalculatorPage.razor (+ .css), wwwroot/index.html
+tests/SciCalc.Tests/            (xUnit, ProjectReference → Domain)
+  ParserTests.cs, EvaluatorTests.cs, CalculatorTests.cs, MemoryTests.cs, HistoryTests.cs
+```
+
+`.gitignore` verified sufficient for `bin/obj` (no extra artifacts; SQLite-free app).
+
+## 5. Implementation Sequence
+
+1. Scaffold sln + 3 projects; Domain value objects + enums (`Token`, `CalculationResult`, `EvaluationContext`) TDD'd.
+2. `MathExpression` parser/evaluator TDD'd across all functions/precedence/error-paths.
+3. `Calculator` session (buffer/history/memory/ANS/lockout/preview) TDD'd.
+4. MAUI Blazor UI: keypad grid Razor component, two-line display, DEG indicator, history scroll list, memory indicators; DI singleton wiring.
+5. Build on all 4 TFMs (Windows primary; Android/iOS/MacCatalyst compile-only gate).
+
+## 6. Assessment
+
+**Simple enough to implement from this high-level plan** — one bounded context, no external services, all logic in well-known classes. A full `/plan-and-design` workflow is **not** required; the detailed test surface is enumerated in §10 to de-risk implementation.
+
+## 7. Assumptions, Decisions, Trade-offs
+
+- **Hand-written parser**: recursive descent, grammar `expr := term ((+|-) term)*`; `term := unary ((*|/|mod) unary)*`; `unary := '-'* power`; `power := postfix ('^' power)?` (right-assoc); `postfix := primary (n! | %)*`; `primary := number | const | func '(' expr ')' | '(' expr ')'`.
+- **Percent semantics**: `PercentNode` resolves versus preceding operand for +/− (200 + 10% → 220) and literal p/100 otherwise (50% → 0.5).
+- **Overflow**: |result| ≥ `double` max, Infinity/NaN → `Overflow` error; factorial limited to non-negative integers ≤ 170 (beyond → `Overflow`).
+- **Trig conversions** performed by `FunctionNode` using `EvaluationContext.Mode` (DEG↔RAD); `EvaluationContext` provides convenience `ToRadians`/`ToDegrees` helpers but holds no mutable state.
+- **History re-insertion**: `HistoryEntry` stores both `ExpressionText` and (optionally) token snapshot; tap replaces buffer.
+- **MAUI ProjectReference**: domain split is required for `xUnit` against net10.0; MAUI stays single-project at presentation level.
+- **DI**: `Calculator` singleton in `MauiProgram.cs`; component subscribes to `Calculator` changed event only if needed (Blazor re-renders on UI events automatically; history panel refresh uses the same).
+- **No app-state persistence** (history/memory are session-scoped; restartable).
+
+## 8. In Scope / Out of Scope
+
+- **In**: the 14 MVP features, MAUI Blazor Hybrid single app, xUnit tests on Domain, compile gate for all TFMs.
+- **Out**: persistence of history/memory across launches, graphing/programming, localization, theming beyond clean default, packaging/Store deployment, mobile device testing.
+
+## 9. Acceptance Criteria
+
+- `dotnet build` succeeds for Windows; and other TFMs compile (`-t:android/-t:ios/-t:maccatalyst` subject to SDK availability).
+- All MVP behaviors e2e via UI on Windows; `dotnet test` green over §10.
+- UI always shows DEG/RAD badge; memory badges reflect non-empty slots; history (up to 10) tap-to-re-insert; error shows "Error" + reason subtitle; post-error non-AC keys ignored.
+
+## 10. Test Cases to Implement
+
+### Parser/Evaluator — precedence/associativity
+- `2+3*4` → 14; `(2+3)*4` → 20; nested parens `(((1+2)))` → 3; `2^3^2` → 512 (right-assoc); `-2+3` → 1; `2*-3` → -6; `-(-3)` → 3; unary minus at start `-(2+3)` → -5.
+
+### Percent
+- `50%` → 0.5; `200+10%` → 220; `200-10%` → 180; `200*10%` → 20; `200/10%` → 2000.
+
+### Functions (RAD default + DEG when set)
+- sin(π/2) = 1; sin(90° in DEG) = 1; asin(1)=π/2 (RAD)/90 (DEG); cos(0)=1; cos(π)=-1; tan(0)=0; acos(1)=0; atan(1)=π/4.
+- sinh(0)=0; cosh(0)=1; tanh(0)=0; sinh(1)≈1.1752; cosh(1)≈1.5431; tanh(1)≈0.7616.
+- log10(100)=2; log10(1)=0; ln(e)=1; ln(1)=0.
+- e^0=1; e^1≈2.71828; e^2≈7.389056; 10^0=1; 10^2=100.
+- x²: 3²=9; (-3)²=9; 0²=0. x³: 2³=8; (-2)³=-8.
+- √(4)=2; √(0)=0; √(1)=1. ∛(27)=3; ∛(-8)=-2 (valid); ∛(0)=0.
+- 2^10=1024; 0^0=1 (IEEE convention).
+- 0!=1; 1!=1; 5!=120; 170!=valid (max); |x|: abs(-3)=3; abs(0)=0; abs(3)=3.
+- 1/x: 1/4=0.25; 1/(-2)=-0.5. mod: 10 mod 3=1; -10 mod 3=-1 (C# `%` semantics).
+- Constants: π≈3.14159265; e≈2.71828182.
+
+### Errors (each → CalcError code)
+- `1/0` → DivisionByZero; `1/x` where x=0 → DivisionByZero; `10 mod 0` → DivisionByZero.
+- `√(-1)` → NegativeSqrt; `√(-0.001)` → NegativeSqrt.
+- `ln(0)` → NonPositiveLog; `ln(-2)` → NonPositiveLog; `log10(0)` → NonPositiveLog; `log10(-1)` → NonPositiveLog.
+- `asin(2)` → AsinAcosOutOfRange; `acos(-2)` → AsinAcosOutOfRange; `asin(-1.001)` → AsinAcosOutOfRange; `acos(1.001)` → AsinAcosOutOfRange. Boundary: `asin(1)` and `asin(-1)` succeed.
+- `1.5!` → InvalidFactorial; `(-2)!` → InvalidFactorial; `(-1)!` → InvalidFactorial.
+- `171!` → Overflow; `200!` → Overflow; `2^10000` → Overflow; `e^1000` → Overflow; `10^1000` → Overflow.
+- `(1+2` → Malformed; `1+` → Malformed; `)(` → Malformed; empty expr on Eq → Malformed; `)` alone → Malformed; `++1` → Malformed.
+
+### Calculator session
+- Buffer append/delete/render; DEL removes only last token; DEL on empty buffer → no-op (no crash); AC resets buffer+lock+preview.
+- Lockout: after Eq error, only AC accepted; all other keys ignored while locked; preview unaffected by lock.
+- Equals on empty buffer → Malformed error → lockout.
+- History cap: 12 Eq evaluations → History.Count = 10; oldest evicted; tap-restore into buffer replaces current buffer.
+- ANS inserts last result as literal; ANS when no previous result → inserts 0 (or no-op — decision to be documented).
+- Memory: store/recall/clear per slot independent; StoreM1 and StoreM2 are independent; RecallM1 after StoreM1 returns stored value; ClearM1 does not affect M2; IsNonEmpty flips correctly per slot; Recall from empty slot → no-op / inserts nothing.
+- Angle toggle flips mode, affects trig consistency; toggle DEG→RAD→DEG round-trip; verify sin(90) gives 1 in DEG and sin(π/2) gives 1 in RAD.
+- Live preview updates on every keypress; preview failure (malformed in-progress expression) shows blank, not error lockout.
+
+---
+# User Prompt
+
 Create a high level plan for this task (high level plan is enough, do not run a full plan and design workflow): "Build a URL shortener REST API with base62 encoding, rate limiting, and SQLite storage using EF Core. Include a simple but polished static HTML page (no framework, no build step) for creating short links and following redirects. The page should be slick and minimal — one input, one button, a clean list of created short links, and click-to-redirect."
 
 # High-Level Plan: URL Shortener (ASP.NET Core + EF Core/SQLite + Static HTML)

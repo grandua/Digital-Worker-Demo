@@ -2,6 +2,102 @@
 
 Build a scientific calculator app "SciCalc" that runs natively on Windows, macOS, iOS, and Android from a single .NET MAUI Blazor Hybrid project. Keypad-driven scientific calculator: +, -, *, / with precedence; parentheses (unlimited depth, unmatched detection); scientific functions (sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, log10, ln, e^x, 10^x, x², x³, √, ∛, x^y, n!, |x|, 1/x, mod); constants π, e; DEG/RAD toggle visible in UI; unary minus context; right-associative `^`; percent semantics (50% → 0.5, "200 + 10%" → 220); history of last 10 evaluated expressions (tap to re-insert); memory M1/M2/M3 with store/recall/clear + non-empty indicator; ANS key; AC/DEL; error handling (div-zero, sqrt of negative, ln of non-positive, bad factorial, asin/acos |x|>1, overflow, malformed) with "Error" + reason, lockout until AC; two-line display (input line + last result / live preview). Tech: .NET 10, .NET MAUI Blazor Hybrid (BlazorWebView + Razor), xUnit, NO external NuGets — hand-written parser/evaluator in Domain layer; no DataTable.Compute / Roslyn. Windows primary target; mobile/mac must compile but need not be device-tested.
 
+# High-Level Plan: SciCalc (.NET MAUI Blazor Hybrid) — Resume Pass 2: UI, Build Hygiene, Verification
+
+> Applies to commit `de4cef8` (TDD iterations 1-3 committed). Domain logic was re-verified against the spec; plan covers **remaining work only**.
+
+## 1. Architecture / Approach Overview
+
+The committed three-project structure is retained (unchanged):
+
+- **`SciCalc.Domain`** (net10.0 class lib, no deps): complete engine — verified: parser (recursive descent into AST: precedence `+ - * / mod`, right-assoc `^`, unary minus, `n!`/`%` postfix, function calls, unmatched-paren & malformed detection), percent semantics (bare `p/100` vs baseline-scaled on `+`/`-`), all 20 scientific functions with DEG→RAD and RAD→DEG conversions on/in inverse trig, full error taxonomy, `Calculator` aggregate session (`InputBuffer`, `MemoryBank`, `HistoryEntry`, ANS, preview, lockout). **No changes planned** — only a spec-vs-code gap note (§2).
+- **`SciCalc`** (MAUI Blazor Hybrid, references Domain): **the only new presentation work** — implement `Components/CalculatorPage.razor` (+ scoped CSS) as the keypad-driven UI over the `Calculator` aggregate; register the aggregate as a DI singleton in `MauiProgram`. No separate Application layer needed — Razor binds straight to the aggregate (thin glue; avoids anemic pass-through services).
+- **`SciCalc.Tests`** (xUnit v3, references Domain): **205 tests, all passing** when scoped to the test project. Verification must still pass on `net10.0`.
+
+**Environment constraint (confirmed on this machine):** .NET 10 SDK 10.0.302 present; **zero MAUI workloads installed** (no sudo/workload-install able). Plain `net10.0` TFM in the MAUI csproj pulls the `maui-tizen` workload → the whole-solution `dotnet test` currently fails building `SciCalc.csproj`. Build hygiene must be fixed so root-level `dotnet test` passes (§4, §5).
+
+## 2. Existing State vs. Gap Analysis (at `de4cef8`)
+
+| Exists & verified | Gap to close |
+|---|---|
+| All enums/VOs (`Token`, `CalculationResult`, `EvaluationContext`, `CalcError` 7 codes, `AngleMode`, `InputKey` full key surface, `MemorySlotId`) | None |
+| Parser/evaluator across precedence, parens, unary minus, right-assoc `^`, postfix `!`/`%`, functions, percent — covered by ParserTests/EvaluatorTests/FunctionTests/PercentTests | None (re-verified green) |
+| `Calculator` aggregate: buffer render/DEL/AC, preview, Eq→history+ANS, lockout-until-AC, empty-eq→Malformed, memory store/recall/clear independence, angle toggle, ANS-before-answer→0 — covered by CalculatorTests/HistoryTests/MemoryTests | None |
+| MAUI shell: `MauiProgram`, `App`, `MainPage` + `BlazorWebView`, `index.html` | **`Components/CalculatorPage.razor` is a 2-line placeholder** → UI implementation |
+| `SciCalc.sln` includes Domain, Tests, MAUI | Root `dotnet test` fails on MAUI workload (`maui-tizen` from plain `net10.0` TFM) → fix solution/build hygiene |
+| MAUI csproj multi-targeting (`net10.0`, `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`, + `net10.0-windows10.0.19041.0` on Windows) | Drop plain `net10.0` TF (Tizen fallback); keep 4 platform TFMs; confirm on a machine with workloads |
+
+## 3. New/Extended Classes (presentation only)
+
+| Class | Responsibilities | New members | Methods (≤3 params; ctor exempt) |
+|---|---|---|---|
+| `CalculatorPage.razor` (component) | Thin presentation: render `Calculator` state, forward `InputKey` presses | `@inject Calculator` | `Press(InputKey)`, `Restore(HistoryEntry)`, `ErrorText(CalcError?)` |
+| `CalculatorPage.razor.css` (scoped CSS) | Keypad grid, display typography, badges, history panel, error banner | — | — |
+| `MauiProgram` (edit) | Register Domain aggregate in DI | `builder.Services.AddSingleton<Calculator>()` | — |
+
+No new Domain classes. Error→subtitle mapping is a presentation concern: a static map inside `CalculatorPage` (e.g. `"Cannot divide by zero"`, `"Square root of negative"`, `"Log of non-positive"`, `"Invalid factorial"`, `"asin/acos input out of range"`, `"Overflow"`, `"Malformed expression"`).
+
+## 4. Integration Points / Project Structure
+
+Unchanged file layout; edits only:
+
+```
+src/SciCalc/Components/CalculatorPage.razor   (implement)
+src/SciCalc/Components/CalculatorPage.razor.css (new)
+src/SciCalc/MauiProgram.cs                     (add DI registration)
+src/SciCalc/SciCalc.csproj                     (drop plain net10.0 from TargetFrameworks)
+SciCalc.sln                                    (remove MAUI project, or keep + document scoped test command — decision below)
+README.md                                      (document verification commands & workaround)
+```
+
+**Solution-hygiene decision:** remove `SciCalc.csproj` from `SciCalc.sln` so root-level `dotnet test` (build of all sln projects) passes on net10.0 without MAUI workloads; the project file remains in `src/SciCalc/` for building on a machine with workloads. README documents both the removal and the exact commands.
+
+## 5. Implementation Sequence
+
+1. **Solution hygiene**: `dotnet sln SciCalc.sln remove src/SciCalc/SciCalc.csproj`; verify `dotnet test` at root → Domain+Tests green (205 tests).
+2. **UI (TDD-lite; manual visual check where possible)**:
+   a. Layout in `CalculatorPage`: error banner slot → two-line display (top `Buffer.Text()`, bottom `Preview`/`LastAnswer`) + badges (DEG/RAD from `Mode`; M1/M2/M3 non-empty indicators) → keypad grid → scrollable history panel.
+   b. Keypad (all keys emit `Calculator.Press(InputKey)`): main pad `[AC DEL % ÷] [7 8 9 ×] [4 5 6 −] [1 2 3 +] [0 . ANS =]`; scientific pad (sin cos tan, asin acos atan, sinh cosh tanh, log ln, e^x 10^x, x² x³, √ ∛, ^, mod, |x|, 1/x, n!, π, e, `(`, `)`); memory row (M1–M3 store/recall/clear); DEG/RAD toggle.
+   c. Error state renders "Error" + mapped subtitle; history items `@onclick → Calculator.RestoreHistory(entry)`.
+   d. DI registration + scoped CSS (grid tiles, sticky display, badges, history list).
+3. **MAUI csproj**: drop plain `net10.0` from `TargetFrameworks`; keep android/ios/maccatalyst (+ conditional windows).
+4. **Verification gate**: root `dotnet test` passes; `dotnet build src/SciCalc/SciCalc.csproj` attempted, failure tolerated here (documented), must pass where `maui` workloads exist (Windows primary).
+5. **README update**: run/verify instructions + ANS-before-answer→0 decision + solution-hygiene note.
+
+## 6. Assessment
+
+**Simple enough to implement from this high-level plan only.** Remaining surface = one Razor component + scoped CSS + DI + solution/build hygiene + README. No domain redesign; spec-vs-code re-verification found no gaps beyond UI. A full `/plan-and-design` workflow is **not** required.
+
+## 7. Assumptions, Decisions, Trade-offs
+
+- **No Application layer project**: the aggregate IS the session glue; `MauiProgram` registers it, Razor binds to it. Rich Domain Model preserved — Razor adds zero logic (only `CalcError→subtitle` text map lives in the component).
+- **Postfix-style keys** (`x² x³ √ ∛ |x| 1/x n!`): `Calculator.AppendFunction` already emits prefix/wrap-around token sequences as tested; UI merely sends the key — no UI-side wrapping.
+- **History tap** uses `Calculator.RestoreHistory(entry)` (buffer replaced with stored token snapshot), ignored while locked — already tested.
+- **ANS before first answer → 0**: documented decision, already implemented+tested; README restates it.
+- **Solution hygiene**: removing the MAUI project from the sln is chosen vs. keeping-and-scoping, because acceptance says "`dotnet test` must pass on net10.0" at repo scope; slimming TargetFrameworks additionally removes the accidental Tizen fallback.
+- **CSS**: Blazor scoped CSS (`CalculatorPage.razor.css`) over global stylesheets; theme = clean default only.
+- **No persistence** of history/memory across launches (unchanged scope).
+
+## 8. In Scope / Out of Scope
+
+- **In**: UI implementation, DI, solution/build hygiene, README, verification gate, (optional) any missed §10-style tests discovered during UI walk-through.
+- **Out**: persistence, theming, device testing for iOS/Android/macOS, packaging.
+
+## 9. Acceptance Criteria
+
+- `dotnet test` at repo root passes on net10.0 (205 tests; solution builds only Domain+Tests).
+- `CalculatorPage` renders: two-line display, DEG/RAD badge always visible, memory badges on non-empty slots, history (≤10) tap-to-re-insert, error shows "Error" + reason, post-error only AC accepted, live preview while typing.
+- `SciCalc.csproj` targets only platform TFMs (android/ios/maccatalyst + conditional windows); builds where workloads available (Windows primary).
+- README documents verification commands, workloads caveat, and ANS-before-answer decision.
+
+## 10. Test Cases to Implement
+
+Existing 205 tests cover the original §10 checklist (re-verified: precedence/associativity, percent semantics, all functions×both angle modes, full error taxonomy, buffer/DEL/AC/lockout, history cap+restore, ANS, memory independence, angle round-trip, preview). Remaining test actions:
+
+- Re-run full suite after each UI/build-hygiene change (no new Domain behavior expected).
+- Any new behavior introduced during UI review (e.g., previously-uncaught edge like `mod` chained or nested function call) → add tests first (TDD discipline preserved).
+
+---
 # High-Level Plan: SciCalc (.NET MAUI Blazor Hybrid) — Resume Pass
 
 > This updates the original SciCalc plan below for the committed scaffold at `732575b`.

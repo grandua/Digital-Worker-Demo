@@ -1,0 +1,252 @@
+.calc {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 12px;
+}
+
+.calc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.calc-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #aeb6c8;
+}
+
+.mode-toggle {
+    border: 1px solid #2c4a7a;
+    border-radius: 999px;
+    background: #141a2b;
+    color: #7fb2ff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 5px 14px;
+    cursor: pointer;
+}
+
+.display {
+    background: linear-gradient(180deg, #0b0e14, #05060a);
+    border: 1px solid #262b3a;
+    border-radius: 14px;
+    padding: 16px 18px;
+    min-height: 104px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.entry {
+    font-size: 1.9rem;
+    color: #eef1f8;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.entry::-webkit-scrollbar {
+    display: none;
+}
+
+.result {
+    min-height: 1.4rem;
+    text-align: right;
+    font-size: 1.05rem;
+    color: #8fd0a0;
+}
+
+.error-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ff6b6b;
+    text-align: center;
+}
+
+.error-reason {
+    text-align: center;
+    font-size: 0.95rem;
+    color: #d99292;
+}
+
+.memory {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 6px;
+}
+
+.mem-group {
+    display: grid;
+    grid-template-columns: 36px 1fr 1fr 1fr;
+    gap: 5px;
+    align-items: center;
+}
+
+.mem-badge {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #3d4459;
+    border: 1px solid #232838;
+    border-radius: 999px;
+    padding: 4px 0;
+}
+
+.mem-badge.on {
+    color: #ffd479;
+    border-color: #6b5a2b;
+    background: #2a2415;
+}
+
+.calc-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 10px;
+    align-items: start;
+}
+
+.keypad {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pad {
+    display: grid;
+    gap: 6px;
+}
+
+.pad.sci {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+}
+
+.pad.main {
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+}
+
+.key {
+    border: 1px solid #262b3a;
+    border-radius: 10px;
+    background: #1c2130;
+    color: #e8eaf0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 12px 4px;
+    cursor: pointer;
+}
+
+.key:active {
+    background: #2a3145;
+    transform: scale(0.97);
+}
+
+.key.sci {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 9px 4px;
+    background: #171c29;
+    color: #c3cadb;
+}
+
+.key.mem {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 2px;
+    background: #161a25;
+    color: #a7afc2;
+}
+
+.key.danger {
+    background: #3a1a20;
+    border-color: #5c2831;
+    color: #ff8f8f;
+}
+
+.key.warn {
+    background: #38301a;
+    border-color: #5c4d28;
+    color: #ffd479;
+}
+
+.key.equals {
+    background: #1a3350;
+    border-color: #2c5282;
+    color: #9ccaff;
+}
+
+.wide {
+    grid-column: span 2;
+}
+
+.history-panel {
+    border: 1px solid #232838;
+    border-radius: 12px;
+    background: #12151f;
+    padding: 10px 12px;
+}
+
+.history-title {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #7d8598;
+}
+
+.history-empty {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #4c5468;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    background: #171b26;
+    border: 1px solid #232838;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #aeb6c8;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.history-item:hover {
+    background: #1d2231;
+    border-color: #33405e;
+}
+
+.history-expression {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-result {
+    flex: none;
+    color: #8fd0a0;
+}
+
+@media (max-width: 720px) {
+    .calc-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

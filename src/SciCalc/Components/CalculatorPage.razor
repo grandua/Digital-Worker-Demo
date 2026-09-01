@@ -1,2 +1,170 @@
-<h1>SciCalc</h1>
-<p>Calculator UI arrives in a later iteration.</p>
+@using SciCalc.Domain
+@using System.Globalization
+@inject Calculator Calc
+
+<div class="calc">
+    <header class="calc-header">
+        <span class="calc-title">SciCalc</span>
+        <button class="mode-toggle" @onclick="() => Press(InputKey.DegRadToggle)">@ModeText</button>
+    </header>
+    <section class="display">
+        @if (Calc.Locked)
+        {
+            <div class="error-title">Error</div>
+            <div class="error-reason">@Reason(Calc.ActiveError!.Value)</div>
+        }
+        else
+        {
+            <div class="entry">@ExpressionText</div>
+            <div class="result">@ResultText</div>
+        }
+    </section>
+    <section class="memory">
+        @foreach (MemSlot slot in _memorySlots)
+        {
+            <div class="mem-group">
+                <span class="mem-badge @(Calc.Memory.IsNonEmpty(slot.Id) ? "on" : "")">@slot.Name</span>
+                <button class="key mem" @onclick="() => Press(slot.Store)">M+</button>
+                <button class="key mem" @onclick="() => Press(slot.Recall)">MR</button>
+                <button class="key mem" @onclick="() => Press(slot.Clear)">MC</button>
+            </div>
+        }
+    </section>
+    <div class="calc-body">
+        <section class="keypad">
+            <div class="pad sci">
+                @foreach (KeyDef key in _functionKeys)
+                {
+                    <button class="key sci" @onclick="() => Press(key.Key)">@key.Label</button>
+                }
+            </div>
+            <div class="pad main">
+                @foreach (KeyDef key in _mainKeys)
+                {
+                    <button class="@key.Style" @onclick="() => Press(key.Key)">@key.Label</button>
+                }
+            </div>
+        </section>
+        <aside class="history-panel">
+            <h2 class="history-title">History</h2>
+            @if (Calc.History.Count == 0)
+            {
+                <p class="history-empty">No calculations yet.</p>
+            }
+            else
+            {
+                <div class="history-list">
+                    @foreach (HistoryEntry entry in NewestFirst)
+                    {
+                        <button class="history-item" @onclick="() => Restore(entry)">
+                            <span class="history-expression">@entry.ExpressionText</span>
+                            <span class="history-result">= @Format(entry.ResultValue)</span>
+                        </button>
+                    }
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+@code {
+    private readonly List<KeyDef> _functionKeys =
+    [
+        new("sin", InputKey.Sin),
+        new("cos", InputKey.Cos),
+        new("tan", InputKey.Tan),
+        new("asin", InputKey.Asin),
+        new("acos", InputKey.Acos),
+        new("atan", InputKey.Atan),
+        new("sinh", InputKey.Sinh),
+        new("cosh", InputKey.Cosh),
+        new("tanh", InputKey.Tanh),
+        new("log", InputKey.Log10),
+        new("ln", InputKey.Ln),
+        new("eˣ", InputKey.Exp),
+        new("10ˣ", InputKey.TenPow),
+        new("n!", InputKey.Factorial),
+        new("x²", InputKey.Square),
+        new("x³", InputKey.Cube),
+        new("√", InputKey.Sqrt),
+        new("³√", InputKey.Cbrt),
+        new("1/x", InputKey.Reciprocal),
+        new("|x|", InputKey.Abs),
+        new("π", InputKey.Pi),
+        new("e", InputKey.E),
+    ];
+
+    private readonly List<KeyDef> _mainKeys =
+    [
+        new("AC", InputKey.AllClear, "key danger"),
+        new("DEL", InputKey.Delete, "key warn"),
+        new("(", InputKey.OpenParen),
+        new(")", InputKey.CloseParen),
+        new("÷", InputKey.Div),
+        new("7", InputKey.Digit7),
+        new("8", InputKey.Digit8),
+        new("9", InputKey.Digit9),
+        new("%", InputKey.Percent),
+        new("×", InputKey.Mul),
+        new("4", InputKey.Digit4),
+        new("5", InputKey.Digit5),
+        new("6", InputKey.Digit6),
+        new("^", InputKey.Pow),
+        new("−", InputKey.Sub),
+        new("1", InputKey.Digit1),
+        new("2", InputKey.Digit2),
+        new("3", InputKey.Digit3),
+        new("mod", InputKey.Mod),
+        new("+", InputKey.Add),
+        new("0", InputKey.Digit0),
+        new(".", InputKey.Dot),
+        new("ANS", InputKey.Ans),
+        new("=", InputKey.Eq, "key equals wide"),
+    ];
+
+    private readonly List<MemSlot> _memorySlots =
+    [
+        new("M1", MemorySlotId.M1, InputKey.StoreM1, InputKey.RecallM1, InputKey.ClearM1),
+        new("M2", MemorySlotId.M2, InputKey.StoreM2, InputKey.RecallM2, InputKey.ClearM2),
+        new("M3", MemorySlotId.M3, InputKey.StoreM3, InputKey.RecallM3, InputKey.ClearM3),
+    ];
+
+    private IEnumerable<HistoryEntry> NewestFirst => Enumerable.Reverse(Calc.History);
+
+    private string ModeText => Calc.Mode == AngleMode.Degrees ? "DEG" : "RAD";
+
+    private string ExpressionText => Calc.Buffer.Text() is { Length: > 0 } text ? text : "0";
+
+    private string ResultText => Calc.Preview is { } preview
+        ? $"= {Format(preview)}"
+        : Calc.LastAnswer is { } answer ? $"= {Format(answer)}" : string.Empty;
+
+    private void Press(InputKey key)
+    {
+        Calc.Press(key);
+        StateHasChanged();
+    }
+
+    private void Restore(HistoryEntry entry)
+    {
+        Calc.RestoreHistory(entry);
+        StateHasChanged();
+    }
+
+    private string Format(double value) => value.ToString("G15", CultureInfo.InvariantCulture);
+
+    private string Reason(CalcError error) => error switch
+    {
+        CalcError.DivisionByZero => "Division by zero",
+        CalcError.NegativeSqrt => "Negative sqrt",
+        CalcError.NonPositiveLog => "Non-positive log",
+        CalcError.InvalidFactorial => "Invalid factorial",
+        CalcError.AsinAcosOutOfRange => "Out of domain",
+        CalcError.Overflow => "Overflow",
+        _ => "Malformed expression",
+    };
+
+    private sealed record KeyDef(string Label, InputKey Key, string Style = "key");
+
+    private sealed record MemSlot(string Name, MemorySlotId Id, InputKey Store, InputKey Recall, InputKey Clear);
+}

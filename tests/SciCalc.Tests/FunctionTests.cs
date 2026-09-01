@@ -19,6 +19,9 @@ public class FunctionTests
     [InlineData(AngleMode.Degrees, "acos(0)", 90)]
     [InlineData(AngleMode.Degrees, "acos(1)", 0)]
     [InlineData(AngleMode.Radians, "acos(1)", 0)]
+    [InlineData(AngleMode.Radians, "asin(-1)", -Math.PI / 2)]
+    [InlineData(AngleMode.Degrees, "asin(-1)", -90)]
+    [InlineData(AngleMode.Degrees, "acos(-1)", 180)]
     [InlineData(AngleMode.Degrees, "atan(1)", 45)]
     [InlineData(AngleMode.Radians, "atan(1)", Math.PI / 4)]
     public void EvaluatesTrigRespectingAngleMode(AngleMode mode, string source, double expected)

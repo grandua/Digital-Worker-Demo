@@ -41,6 +41,8 @@ public class EvaluatorTests
     [InlineData("1/(0)", CalcError.DivisionByZero)]
     [InlineData("10 mod 0", CalcError.DivisionByZero)]
     [InlineData("2^10000", CalcError.Overflow)]
+    [InlineData("10^1000", CalcError.Overflow)]
+    [InlineData("e^1000", CalcError.Overflow)]
     [InlineData("9^9^9", CalcError.Overflow)]
     public void ReportsDomainErrors(string source, CalcError expected)
     {

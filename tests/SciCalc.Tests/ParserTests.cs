@@ -30,6 +30,7 @@ public class ParserTests
     [InlineData("1+", CalcError.Malformed)]
     [InlineData(")(", CalcError.Malformed)]
     [InlineData(")", CalcError.Malformed)]
+    [InlineData("()", CalcError.Malformed)]
     [InlineData("++1", CalcError.Malformed)]
     [InlineData("2**3", CalcError.Malformed)]
     [InlineData("2 3", CalcError.Malformed)]

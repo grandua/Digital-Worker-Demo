@@ -7,6 +7,10 @@ public readonly record struct Token(
     FunctionKind? FunctionKind,
     ConstantKind? ConstantKind)
 {
+    public static Token Digit(double value) => new(TokenKind.Digit, value, null, null, null);
+
+    public static Token Dot() => new(TokenKind.Dot, null, null, null, null);
+
     public static Token Number(double value) => new(TokenKind.Number, value, null, null, null);
 
     public static Token Operator(OperatorKind kind) => new(TokenKind.Operator, null, kind, null, null);

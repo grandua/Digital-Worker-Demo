@@ -57,7 +57,7 @@
                     @foreach (var item in NewestFirst)
                     {
                         <button class="history-item" @key="item.Index" @onclick="() => Restore(item.Entry)">
-                            <span class="history-expression">@DisplayText(item.Entry.Tokens)</span>
+                            <span class="history-expression">@HistoryText(item.Entry.Tokens)</span>
                             <span class="history-result">= @Format(item.Entry.ResultValue)</span>
                         </button>
                     }
@@ -172,14 +172,16 @@
 
     private string ModeText => Calc.Mode == AngleMode.Degrees ? "DEG" : "RAD";
 
-    private string ExpressionText => Calc.Buffer.Tokens.Count == 0 ? "0" : DisplayText(Calc.Buffer.Tokens);
+    private string ExpressionText => Calc.Buffer.Tokens.Count == 0 ? "0" : DisplayText(Calc.Buffer.Tokens, isLive: true);
 
-    private string DisplayText(IReadOnlyList<Token> tokens) => string.Concat(
-        tokens.Select((token, index) => RenderToken(token, index == tokens.Count - 1)));
+    private string HistoryText(IReadOnlyList<Token> tokens) => DisplayText(tokens, isLive: false);
 
-    private string RenderToken(Token token, bool isLast) => token.Kind switch
+    private string DisplayText(IReadOnlyList<Token> tokens, bool isLive) => string.Concat(
+        tokens.Select((token, index) => RenderToken(token, isLive && index == tokens.Count - 1)));
+
+    private string RenderToken(Token token, bool showLiveEdit) => token.Kind switch
     {
-        TokenKind.Number => RenderNumber(token, isLast),
+        TokenKind.Number => RenderNumber(token, showLiveEdit),
         TokenKind.Operator => operatorGlyphs[token.OperatorKind!.Value],
         TokenKind.Function => RenderFunction(token.FunctionKind!.Value),
         TokenKind.OpenParen => "(",
@@ -189,8 +191,8 @@
         _ => string.Empty,
     };
 
-    private string RenderNumber(Token token, bool isLast) =>
-        isLast && Calc.Buffer.EditingNumber is { } editing
+    private string RenderNumber(Token token, bool showLiveEdit) =>
+        showLiveEdit && Calc.Buffer.EditingNumber is { } editing
             ? editing
             : token.NumericValue!.Value.ToString(CultureInfo.InvariantCulture);
 

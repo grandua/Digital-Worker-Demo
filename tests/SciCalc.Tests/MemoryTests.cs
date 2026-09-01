@@ -118,6 +118,23 @@ public class MemoryTests
         Assert.Equal(5.0, calculator.Memory.Recall(MemorySlotId.M1));
     }
 
+    [Theory]
+    [InlineData(InputKey.StoreM1, MemorySlotId.M1)]
+    [InlineData(InputKey.StoreM2, MemorySlotId.M2)]
+    [InlineData(InputKey.StoreM3, MemorySlotId.M3)]
+    public void StoreWithIncompleteBufferFallsBackToLastAnswer(InputKey store, MemorySlotId slot)
+    {
+        Calculator calculator = new Calculator().PressAll("8=");
+        calculator.PressAll("5+");
+
+        Assert.Null(calculator.Preview);
+
+        calculator.Press(store);
+
+        Assert.Equal(8.0, calculator.Memory.Recall(slot));
+        Assert.Equal("5+", calculator.Buffer.Text());
+    }
+
     [Fact]
     public void StoringDoesNotChangeBufferOrPreview()
     {

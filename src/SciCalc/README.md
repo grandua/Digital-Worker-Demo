@@ -9,7 +9,7 @@ Scientific calculator built as a .NET 10 MAUI Blazor Hybrid app over the `SciCal
 - `src/SciCalc/` — MAUI Blazor Hybrid presentation (this project): `Components/CalculatorPage.razor` (+ scoped CSS) renders the keypad, two-line display, DEG/RAD badge, memory indicators and history panel; `MainPage.razor` hosts the `BlazorWebView`; `MauiProgram.cs` registers `Calculator` as a singleton; `_Imports.razor` supplies the shared Razor usings.
 - `tests/SciCalc.Tests/` — xUnit v3 tests for the Domain layer.
 
-The MAUI project is intentionally **not** in the solution: it targets only platform TFMs (`net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`, plus `net10.0-windows10.0.19041.0` conditioned on Windows), which require MAUI workloads. Keeping it out of the solution lets `dotnet test` pass at repo root on machines without workloads.
+The MAUI project **is** in the solution, but only its platform-specific build is gated on MAUI workloads: it targets platform TFMs (`net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`, plus `net10.0-windows10.0.19041.0` conditioned on Windows). On machines without workloads, `dotnet build src/SciCalc/SciCalc.csproj` fails with `NETSDK1147` — expected and accepted; `dotnet test` at the solution root (which builds `SciCalc.Domain` + `SciCalc.Tests`) still passes.
 
 ## Verify (no MAUI workloads required)
 

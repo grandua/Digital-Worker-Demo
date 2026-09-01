@@ -1,4 +1,55 @@
-# SciCalc Correctness and Standards Review
+# Full Correctness and Standards Audit (2026-09-01)
+
+Workflow: `review-for-correctness-and-standards`
+Session: `c934847e6cf940179a67c9cb70764b05`
+Scope: all committed code under `src/SciCalc.Domain/**`, `src/SciCalc/**`, and `tests/SciCalc.Tests/**`.
+
+## Correctness Findings
+
+- [x] FIXED [Medium] `src/SciCalc/Components/CalculatorPage.razor:57-62,178-199`: history rows are rendered through `DisplayText`, whose `RenderNumber` reads `Calc.Buffer.EditingNumber` whenever the supplied token is last. While the user edits a current number, every history expression ending in a number can therefore display that current edit text instead of its stored final number. Render history snapshots without current-buffer edit state. A TODO is present at line 177.
+  - Fixed: `HistoryText` renders snapshots with `isLive: false`; live-edit substitution now applies only to the current expression line.
+- [x] FIXED [Medium] `src/SciCalc.Domain/Calculator.cs:89-91,170-173`: `StoreMemory` stores only `Preview`. With an earlier answer and a non-empty malformed/incomplete buffer, `Preview` is null and STO does nothing instead of falling back to the latest answer as required by `Docs/_Current/prompt.md:10`. Add the missing fallback outcome and regression coverage. A TODO is present at line 169.
+  - Fixed: `StoreMemory` falls back to `LastAnswer` when `Preview` is null; regression tests `StoreWithIncompleteBufferFallsBackToLastAnswer` (all 3 slots) added in `MemoryTests`.
+- [x] FIXED [Low] `src/SciCalc/README.md:7,12`: the solution-layout list says `SciCalc.sln` contains the MAUI project, then the next section says the project is intentionally absent. The actual solution contains `src/SciCalc/SciCalc.csproj`; remove the contradictory statement and document the real workload behavior.
+  - Fixed: README now documents that the MAUI project is in the solution and explains the NETSDK1147 workload gate.
+
+## Architecture and Domain Findings
+
+- [Medium] `src/SciCalc.Domain/InputBuffer.cs:9-44,84-104` and `src/SciCalc/Components/CalculatorPage.razor:72-107,178-199`: Domain retains operator/function/constant display mappings while Presentation owns a second glyph mapping. This mixes presentation concerns into `InputBuffer` and duplicates the mapping source. Keep expression/edit semantics in Domain and UI glyph rendering in Presentation.
+- [Low] `tests/SciCalc.Tests/TestTokens.cs:7-118`: `TestTokens` is a static procedural tokenizer with static lookup state, not an extension host or a state-and-behavior object. It also duplicates symbol/function mappings represented elsewhere. Replace it with a non-static test expression object or use the public calculator outcomes directly.
+- [Low] `src/SciCalc.Domain/CalculationResult.cs:3-19`: the default value of this public struct has neither `Value` nor `Error`, but `HasError` reports false and callers then dereference `Value`. The type does not enforce its success/failure invariant; use a shape whose default cannot masquerade as success.
+
+No Domain I/O, outward Domain package dependency, circular dependency, Data-layer inversion, anemic production service, or presentation-owned calculation was found. `Calculator` remains the aggregate coordinating session behavior. Derived properties `LastAnswer`, `Locked`, `Preview`, and `HasLiteralOverflow` are pull-based and have no mutable caches.
+
+## Strict Standards Findings
+
+- [Medium] Methods over the 10-line limit: `src/SciCalc.Domain/InputBuffer.cs:53-67` (`Add`), `src/SciCalc.Domain/MathExpression.cs:5-15` (`Evaluate`), `src/SciCalc.Domain/MathExpression.cs:103-114` (`ParsePrimary`), `src/SciCalc.Domain/Nodes/FunctionNode.cs:35-45` (`Inverse`), and `src/SciCalc/Components/CalculatorPage.razor:181-191` (`RenderToken`). Test/helper violations include `tests/SciCalc.Tests/TestTokens.cs:19-32,43-53`, `MemoryTests.cs:24-35,41-55,58-72`, `HistoryTests.cs:9-19,22-34,37-47`, and `CalculatorTests.cs:123-134,157-171,193-209,260-273,287-297,310-321,353-375`.
+- [Medium] `tests/SciCalc.Tests/MemoryTests.cs:41-42`: `StoreRecallClearRoundTripPerSlot` has four parameters. Constructors alone are exempt from the maximum of three.
+- [Low] Loops prohibited by the workflow's LINQ/pipeline rule remain at `src/SciCalc.Domain/Calculator.cs:108,165`, `src/SciCalc/Components/CalculatorPage.razor:23,36,42,57`, `tests/SciCalc.Tests/TestTokens.cs:22`, `InputBufferTests.cs:34`, `HistoryTests.cs:13`, and `TestKeys.cs:9`.
+- [Low] `src/SciCalc.Domain/InputBuffer.cs:8,45`: `_tokens` and `_numberText` use the prohibited underscore field prefix. The existing TODO at line 7 tracks this.
+- [Low] `src/SciCalc.Domain/MathExpression.cs:29`: `ParseFailure` derives from `Exception` without the framework-standard `Exception` suffix.
+- [Low] `src/SciCalc/Components/CalculatorPage.razor:171-172`: `NewestFirst` returns an `IEnumerable` of tuples instead of a named record/class/struct.
+- [Low] Duplicate closeness/preview assertion helpers remain at `tests/SciCalc.Tests/ParserTests.cs:49-56`, `EvaluatorTests.cs:58-65`, `CalculatorTests.cs:386-390`, `MemoryTests.cs:132-136`, and `TestTokens.cs:11-17`. The non-extension static helpers also violate the workflow's static-member rule. `TestKeys`, `AngleModeConversions`, framework entry points, and value-object factories are exempt.
+- [Low] Null-forgiving value/error chains obscure invariants at `src/SciCalc.Domain/Calculator.cs:183-185`, `InputBuffer.cs:58,74,89-94,104`, `MathExpression.cs:23`, `Nodes/BinaryNode.cs:11`, `Nodes/FunctionNode.cs:11`, `Nodes/PercentNode.cs:14-15,21`, and `src/SciCalc/Components/CalculatorPage.razor:14,183-196`.
+- [Low] Stepwise/void mutation remains in `Calculator.RestoreHistory` and `WrapBufferInFunction` (`Calculator.cs:104-109,158-166`), `InputBuffer` edit helpers (`InputBuffer.cs:106-133`), parser AST aggregation (`MathExpression.cs:51-60`), and the test tokenizer (`TestTokens.cs:19-31`). Return transformations and assign them at aggregate command boundaries.
+
+## Test Gaps
+
+- [Medium] `src/SciCalc/Components/CalculatorPage.razor:5-224`, `CalculatorPage.razor.css:1-253`, and `MauiProgram.cs:8-25`: no automated component/startup harness verifies keypad routes, two-line/error rendering, history rendering/restoration, mode changes, memory indicators, DI composition, or selector alignment. The TODO at `CalculatorPage.razor:71` tracks this; the README records only a temporary compile harness.
+- [Low] Mechanism-targeted empty-token assertions remain at `tests/SciCalc.Tests/CalculatorTests.cs:129,170,231,241,320` and `MemoryTests.cs:84`; prefer displayed buffer/session outcomes. `HistoryTests.cs:50-58` legitimately tests snapshot encapsulation.
+- [Low] No focused tests cover the two correctness findings above: malformed-current-buffer STO fallback and history rendering while current numeric editing is active.
+
+## Requirements Audit
+
+Active source: `Docs/_Current/refactoring-plan.md` (newest pre-workflow timestamp). Completion score: **13.0/15 = 86.7%**. Fully complete: A1, A2, A3, B1a, B5, B1b, B9, B10, B2, B8, and resolved-TODO cleanup. Partial: B3 static/test cleanup, B4 presentation mapping, B6 method/loop cleanup, and B7 naming polish. No item scored None.
+
+## Verification
+
+- `dotnet test tests/SciCalc.Tests`: passed, 227 succeeded, 0 failed, 0 skipped.
+
+---
+
+# SciCalc Correctness and Standards Review (Historical)
 
 ## Final verification iteration 6 findings — fixed
 

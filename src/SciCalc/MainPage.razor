@@ -1,9 +1,0 @@
-@page "/"
-@inherits ContentPage
-@using Microsoft.AspNetCore.Components.WebView
-
-<BlazorWebView HostPage="wwwroot/index.html">
-    <BlazorWebView.RootComponents>
-        <RootComponent Selector="#app" ComponentType="@typeof(Components.CalculatorPage)" />
-    </BlazorWebView.RootComponents>
-</BlazorWebView>

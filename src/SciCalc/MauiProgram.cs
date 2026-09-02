@@ -15,9 +15,8 @@ public static class MauiProgram
 
     private static void RegisterServices(MauiAppBuilder builder)
     {
-        builder
-            .Services.AddMauiBlazorWebView()
-            .AddSingleton<Calculator>();
+        builder.Services.AddMauiBlazorWebView();
+        builder.Services.AddSingleton<Calculator>();
 #if DEBUG && WINDOWS
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();

@@ -9,7 +9,7 @@
   <Properties>
     <DisplayName>SciCalc</DisplayName>
     <PublisherDisplayName>SciCalc</PublisherDisplayName>
-    <Logo>appicon.png</Logo>
+    <Logo>$placeholder$.png</Logo>
   </Properties>
 
   <Dependencies>
@@ -27,10 +27,10 @@
         DisplayName="SciCalc"
         Description="SciCalc scientific calculator"
         BackgroundColor="transparent"
-        Square150x150Logo="appicon.png"
-        Square44x44Logo="appicon.png">
-        <uap:DefaultTile Square71x71Logo="appicon.png" Wide310x150Logo="appicon.png" Square310x310Logo="appicon.png" />
-        <uap:SplashScreen Image="splashscreen.png" />
+        Square150x150Logo="$placeholder$.png"
+        Square44x44Logo="$placeholder$.png">
+        <uap:DefaultTile Square71x71Logo="$placeholder$.png" Wide310x150Logo="$placeholder$.png" Square310x310Logo="$placeholder$.png" />
+        <uap:SplashScreen Image="$placeholder$.png" />
       </uap:VisualElements>
     </Application>
   </Applications>

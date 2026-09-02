@@ -1,3 +1,17 @@
+# Session 2026-09-02 (fix 3 PR-agent defects: Android bootstrap, Windows App.xaml, icon/splash assets)
+
+Resume: this session started on branch feature-card-6a95cde63dd6d80a97e9b10b-20260902112915703 (tip 28bff5b, UrlShortener merge). All prior SciCalc work lives on origin/feature-card-6a95cde63dd6d80a97e9b10b-20260902013421635 (tip a614baa = 093da62 + session.md auto-commit); this branch was fast-forwarded to a614baa and work continued there.
+
+All 3 defects AGREED and FIXED tests-first via /high-level-plan -> /review-high-level-plan (approve-with-changes: MainApplication.cs is a real fix, not verify-only; App.xaml AND App.xaml.cs both absent and were created; manifest kept, only asset values updated; phantom TFM-duplication issue removed) -> /scaffold (TDD) -> /review-unstaged (0 findings).
+
+RED: new tests/SciCalc.Packaging.Tests (xunit.v3, no MAUI-head reference, registered in workload-free SciCalc.sln) failed 16/248 pre-fix, reproducing all 3 defects. GREEN: dotnet test SciCalc.sln = 248/248 (230 existing + 18 new), independently verified twice.
+
+Fixes: src/SciCalc/Platforms/Android/MainApplication.cs ([Application] : MauiApplication, (IntPtr, JniHandleOwnership) ctor, CreateMauiApp override); src/SciCalc/Platforms/Windows/App.xaml + App.xaml.cs (partial : MauiWinUIApplication, InitializeComponent, CreateMauiApp override); src/SciCalc/Resources/AppIcon/appicon.svg + Resources/Splash/splash.svg (original SVG art, #1e1e28); SciCalc.csproj MauiIcon + MauiSplashScreen items; Package.appxmanifest 8 asset values -> $placeholder$.png (Resizetizer consistency). No domain/application changes.
+
+Residual risk (documented): MAUI-head compilation requires the MAUI workload (not present on this Linux host); compile-level verification deferred to a Windows+MAUI CI lane. Reviews: correctness 0 findings; smells 0 findings (only pre-existing B7a RepoRoot._root underscore note); class names 7/7 pass; requirements audit 100% (5/5 ACs Fully).
+
+---
+
 Exported At: 2026-09-02T04:26:43Z
 
 === User Message ===

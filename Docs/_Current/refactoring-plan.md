@@ -507,3 +507,49 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 - No duplicate product code.  
 - Fewest classes needed for stated architecture.
 - R14-R18: DONE (final polish pass) — named constants MaxUrlLength (ShortenerDbContext) and CodeRoute (LinkEndpoints), EnsureCreated chain flattened in Program.cs, CreateLink builds Location from mapped LinkResponse, WindowExpiryBufferMs test constant. All //TODO markers removed (0 remaining). Verified: dotnet test 59/59 passed. Refactoring plan fully executed.
+
+---
+
+## Packaging PR-agent defect fixes — smells audit (session 301f51ad4f2645988288b489bfe1fc39)
+
+**Workflow:** `/find-smells-and-plan-refactoring`  
+**Mode:** AUDIT ONLY — no code/TODOs/behavior changes applied.  
+**Scope:** unstaged vs HEAD `a614baa` — SciCalc.Packaging.Tests + platform bootstrap shells + MauiIcon/Splash resources + Package.appxmanifest `$placeholder$.png` + sln registration.  
+**Gate context:** `dotnet test SciCalc.sln` 248/248; MAUI head not buildable on Linux (no workload).  
+**Prior correctness session:** `7d5e31ad9b5a47de855c25b98efd8f17` — zero correctness findings/TODOs.
+
+### Smell inventory (this scope) — open only
+
+| Severity | Count | Notes |
+|----------|------:|-------|
+| CRITICAL | 0 | No layer/Domain/circular issues |
+| HIGH | 0 | No long methods >20, LPL, static state, Feature Envy, dups >2 |
+| MEDIUM | 0 | No method 11–20, message chains needing fix, magic needing consts |
+| LOW (new) | 0 | No new LOW items |
+| **Total new open** | **0** | |
+
+### Document-only note (not a new plan ID)
+
+| Note | Sev | Location | Disposition |
+|------|-----|----------|-------------|
+| `RepoRoot._root` underscore field prefix | LOW | `tests/SciCalc.Packaging.Tests/RepoRoot.cs:9` | Matches pre-existing **F-01 / B7a** (L1). Fold into B7a naming pass when Domain/Razor underscores are cleaned; **do not** open a separate packaging rename PR. No `//TODO` added. |
+
+### Explicit non-findings (reviewed clean)
+
+- Framework shells: `MainApplication`, Windows `App.xaml` / `App.xaml.cs` — mandated thin CreateMauiApp delegates.
+- Packaging tests: `RepoRoot` instance state over path params; pure static helpers/consts OK; ConformanceTests base used by 3 classes.
+- Manifest/csproj/SVG metadata and `$placeholder$.png` — packaging conventions, not Domain smells.
+- Static inventory keep-list: `RepoRoot.Locate`/`IsRepoRoot`; PackagingManifestTests pure helpers; path/namespace consts; `MauiProgram.CreateMauiApp` exempt.
+
+### Named refactoring steps (this scope)
+
+_None new._ No behavior-preserving structural steps required for packaging delta.
+
+### XP simplicity (packaging delta)
+
+- Runs all tests (248/248 workload-free gate).
+- Intent clear (conformance tests + platform bootstrap).
+- No product duplicate code >2.
+- Fewest classes for the mandate (shells + test helpers).
+
+*End packaging smells audit — session `301f51ad4f2645988288b489bfe1fc39`.*

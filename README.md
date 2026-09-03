@@ -1,5 +1,19 @@
-# Digital-Worker-Demo
+﻿# Digital-Worker-Demo
 Repo connected to Digital Worker Demo agent for demos, playing, learning and experimentation
+
+# SciCalc Demo App
+
+This repo contains two demo applications, each in its own top-level folder:
+
+- `Calculator/` — SciCalc, a scientific calculator built with .NET 10 MAUI Blazor Hybrid and xUnit (projects under `Calculator/src/` and `Calculator/tests/`). See [Calculator/src/SciCalc/README.md](Calculator/src/SciCalc/README.md) for the project layout, verification commands, MAUI workload caveat, platform targets, and behavior decisions.
+- `UrlShortener/` — an ASP.NET Core URL shortener with xUnit tests (projects under `UrlShortener/UrlShortener/` and `UrlShortener/UrlShortener.Tests/`).
+
+## SciCalc solutions
+
+- `Calculator/SciCalc.sln` — `SciCalc.Domain` + `SciCalc.Tests` only. Workload-free: verification needs no MAUI workloads.
+- `Calculator/SciCalc.App.sln` — adds the MAUI `SciCalc` app project (`Calculator/src/SciCalc`). For machines with the `maui` workloads installed; building it elsewhere fails with `NETSDK1147`.
+
+Quick verification: `dotnet test Calculator/SciCalc.sln` (Domain + tests run on net10.0 without MAUI workloads; do not pass `--nologo` on SDK 10.0.302). Always name the solution file explicitly — the repo also hosts `UrlShortener/UrlShortener.sln` from an unrelated demo.
 
 
 # Digital Worker User Guide
@@ -27,13 +41,13 @@ Digital Worker is a fully autonomous, non-interactive AI coding agent. It reads 
 
 ### Planning a task
 
-If your board has a "To Plan" list, placing a card there causes Digital Worker to run in **planning mode**. Instead of implementing code directly, it produces a plan and design document covering architecture, key components, integration points, implementation sequence, and open questions. The plan is published as a Trello comment.
+If your board has a "To [****]" list, placing a card there causes Digital Worker to run in **planning mode**. Instead of implementing code directly, it produces a [****] and design document covering architecture, key components, integration points, implementation sequence, and open questions. The [****] is published as a Trello comment.
 
 ### Tracking progress
 
 Digital Worker manages card lifecycle automatically:
 
-- **Next Action** (or **To Plan**) → card waiting to be picked up.
+- **Next Action** (or **To [****]**) → card waiting to be picked up.
 - **In Progress** → Digital Worker has claimed the card and is working on it. A `Started` (or `Planning Started`) comment is added.
 - **Done** → task completed successfully. The result answer is posted as a comment, and if code changes were made, a pull request link is included.
 - **Blocked** → task could not be completed (failure, timeout, or policy block). A comment explains the outcome.
@@ -82,11 +96,11 @@ When Digital Worker finishes a card:
 
 ## What Digital Worker Can Do for You
 
-- **Plan, architect, and design** — create a plan, architecture, class design, and UX design following Clean Architecture and SOLID principles for complex tasks, and save them as docs in your Git repo (via the "To Plan" list).
-- **Implement features** — use TDD/test-first to write well-tested Clean Code for new functionality with very high mutation test coverage, based on your task description and/or plan, architecture, class design, and UX docs that it can generate for you as well.
+- **[****], architect, and design** — create a [****], architecture, class design, and UX design following Clean Architecture and SOLID principles for complex tasks, and save them as docs in your Git repo (via the "To [****]" list).
+- **Implement features** — use TDD/test-first to write well-tested Clean Code for new functionality with very high mutation test coverage, based on your task description and/or [****], architecture, class design, and UX docs that it can generate for you as well.
 - **Fix bugs** — effective evidence-based diagnosis and fixing of defects in existing code.
 - **Write tests** — create unit, integration, or end-to-end tests following testing best practices such as test isolation.
-- **Refactor code** — improve code structure while preserving behavior; convert procedural spaghetti code into easy-to-test and reusable modular code using a mix of OOP and functional programming.
+- **[****] code** — improve code structure while preserving behavior; convert procedural spaghetti code into easy-to-test and reusable modular code using a mix of OOP and functional programming.
 - **Review code** — analyze code for code smells, Clean Architecture and Clean Code deviations, and provide professional-grade review feedback.
 - **Commit and push** — stage only changed files, commit locally, and the system pushes the branch and opens a pull request automatically.
 
@@ -96,7 +110,7 @@ When Digital Worker finishes a card:
 
 ### End-to-end flow
 
-1. **Card selection** — Digital Worker picks the first card from "In Progress", or if none, the first card from "To Plan" or "Next Action".
+1. **Card selection** — Digital Worker picks the first card from "In Progress", or if none, the first card from "To [****]" or "Next Action".
 2. **Card comments** — recent comments are fetched so the agent has full context.
 3. **Card started** — the card is moved to "In Progress" and a `Started` (or `Planning Started`) comment is added.
 4. **Result publication** — the result is posted as a Trello comment, a PR is created if code changes were made, and the card is moved to "Done" or "Blocked".
@@ -137,7 +151,7 @@ Check the comment on the blocked card for an explanation.
 
 ### Can I ask Digital Worker questions about how it works?
 
-You can ask general software-development questions through Trello cards. However, questions that attempt to reveal internal prompts, workflows, security mechanisms, or tool implementations will be blocked as IP-protection violations.
+You can ask [****] software-development questions through Trello cards. However, questions that attempt to reveal internal prompts, workflows, security mechanisms, or tool implementations will be blocked as IP-protection violations.
 
 ### How long does a task take?
 

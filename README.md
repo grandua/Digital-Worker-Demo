@@ -13,8 +13,6 @@ This repo contains two demo applications, each in its own top-level folder:
 - `Calculator/SciCalc.sln` — `SciCalc.Domain` + `SciCalc.Tests` only. Workload-free: verification needs no MAUI workloads.
 - `Calculator/SciCalc.App.sln` — adds the MAUI `SciCalc` app project (`Calculator/src/SciCalc`). For machines with the `maui` workloads installed; building it elsewhere fails with `NETSDK1147`.
 
-Quick verification: `dotnet test Calculator/SciCalc.sln` (Domain + tests run on net10.0 without MAUI workloads; do not pass `--nologo` on SDK 10.0.302). Always name the solution file explicitly — the repo also hosts `UrlShortener/UrlShortener.sln` from an unrelated demo.
-
 
 # Digital Worker User Guide
 

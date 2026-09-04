@@ -56,7 +56,7 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
-# Razor compile-check harness stale copy (live file lives in src/SciCalc/Components)
+# Razor compile-check harness stale copy (live file lives in Calculator/src/SciCalc/Components)
 .razorcheck/CalculatorPage.razor
 # SQLite databases
 *.db

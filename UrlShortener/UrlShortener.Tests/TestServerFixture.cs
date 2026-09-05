@@ -16,7 +16,11 @@ public abstract class TestServerFixture : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    protected virtual void ConfigureWebHost(IWebHostBuilder builder) => builder.UseSetting("ConnectionStrings:Default", $"Data Source={DatabasePath}");
+    protected virtual void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseSetting("ConnectionStrings:Default", $"Data Source={DatabasePath}");
+        builder.UseSetting("Shortener:PublicOrigin", "http://localhost");
+    }
 
     public async Task DisposeAsync()
     {

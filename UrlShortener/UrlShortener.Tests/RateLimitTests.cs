@@ -10,6 +10,7 @@ public class RateLimitTests : TestServerFixture
     private const int WindowExpiryBufferMs = 3200;
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        base.ConfigureWebHost(builder);
         builder.UseSetting("RateLimiting:PermitLimit", "3");
         builder.UseSetting("RateLimiting:WindowSeconds", "3");
     }

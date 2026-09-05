@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using UrlShortener.Domain;
 
 namespace UrlShortener.Api;
@@ -15,19 +16,19 @@ public static class LinkEndpoints
     }
 
     private static async Task<IResult> CreateLink(
-        CreateLinkRequest? request, LinkRegistry registry, HttpRequest http)
+        CreateLinkRequest? request, LinkRegistry registry, HttpRequest http, IConfiguration configuration)
     {
         if (request is null) return Results.BadRequest();
         LinkResponse response;
-        try { response = (await registry.CreateAsync(request)).ToLinkResponse(GetBaseUri(http)); }
+        try { response = (await registry.CreateAsync(request)).ToLinkResponse(GetBaseUri(http, configuration)); }
         catch (ArgumentException) { return Results.BadRequest(); }
-        return Results.Created($"/api/links/{response.Code}", response);
+        return Results.Created(response.ShortUrl, response);
     }
 
-    private static async Task<IResult> ListLinks(LinkRegistry registry, HttpRequest http)
+    private static async Task<IResult> ListLinks(LinkRegistry registry, HttpRequest http, IConfiguration configuration)
     {
         var links = await registry.ListAsync();
-        return Results.Ok(links.Select(link => link.ToLinkResponse(GetBaseUri(http))).ToArray());
+        return Results.Ok(links.Select(link => link.ToLinkResponse(GetBaseUri(http, configuration))).ToArray());
     }
 
     private static async Task<IResult> Redirect(string code, LinkRegistry registry)
@@ -36,11 +37,15 @@ public static class LinkEndpoints
         return link is null ? Results.NotFound() : Results.Redirect(link.OriginalUrl, false, false);
     }
 
-    private static Uri GetBaseUri(HttpRequest http) => new($"{http.Scheme}://{http.Host}");
+    private static Uri GetBaseUri(HttpRequest http, IConfiguration configuration)
+    {
+        var origin = configuration["Shortener:PublicOrigin"];
+        return string.IsNullOrWhiteSpace(origin) ? new Uri($"{http.Scheme}://{http.Host}") : new Uri(origin);
+    }
 }
 
 internal static class ShortLinkResponseExtensions
 {
     public static LinkResponse ToLinkResponse(this ShortLink link, Uri baseUri) =>
-        new(link.Code!.Value, link.OriginalUrl, $"{baseUri}/{link.Code}", link.ClickCount);
+        new(link.Code!.Value, link.OriginalUrl, new Uri(baseUri, link.Code.Value).ToString(), link.ClickCount);
 }

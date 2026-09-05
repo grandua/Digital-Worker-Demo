@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Threading.RateLimiting;
+using IpNetwork = System.Net.IPNetwork;
 using UrlShortener.Data;
 using UrlShortener.Api;
 
@@ -16,7 +18,16 @@ builder.Services.AddDbContext<ShortenerDbContext>(options => options.UseSqlite(c
 builder.Services.AddScoped<LinkRegistry>();
 var permitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", defaultPermitLimit);
 var windowSeconds = builder.Configuration.GetValue("RateLimiting:WindowSeconds", defaultWindowSeconds);
-builder.Services.Configure<ForwardedHeadersOptions>(options => options.ForwardedHeaders = ForwardedHeaders.XForwardedFor);
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").GetChildren())
+        if (IPAddress.TryParse(proxy.Value!, out var address)) options.KnownProxies.Add(address);
+    foreach (var network in builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").GetChildren())
+        if (IpNetwork.TryParse(network.Value!, out var parsed)) options.KnownIPNetworks.Add(parsed);
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

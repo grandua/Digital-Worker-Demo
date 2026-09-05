@@ -1,179 +1,254 @@
 # User Prompt
 
-Create a high level plan for this task (high level plan is enough, do not run a full plan and design workflow): "Build a URL shortener REST API with base62 encoding, rate limiting, and SQLite storage using EF Core. Include a simple but polished static HTML page (no framework, no build step) for creating short links and following redirects. The page should be slick and minimal — one input, one button, a clean list of created short links, and click-to-redirect."
+Fix 3 defects found by PR agent on the SciCalc MAUI Blazor Hybrid scientific calculator app located in the current working directory (a git worktree). The 3 defects:
+1. The Android platform (src/SciCalc/Platforms/Android/) has MainActivity but no MauiApplication subclass that initializes the shared MAUI app via MauiProgram.CreateMauiApp(); add the Android application bootstrap class (MainApplication.cs) with its [Application] registration and required constructor.
+2. The Windows target (src/SciCalc/Platforms/Windows/) lacks its WinUI/MAUI platform application class; add conventional App.xaml and App.xaml.cs deriving from MauiWinUIApplication with CreateMauiApp() returning MauiProgram.CreateMauiApp().
+3. Windows Package.appxmanifest references icon and splash files that are absent from the project; add source icon/splash resources via MAUI resource items (MauiIcon/MauiSplashScreen in SciCalc.csproj with the Resources/AppIcon and Resources/Splash files) or add correctly sized packaged files and update manifest paths consistently.
 
-# High-Level Plan: URL Shortener (ASP.NET Core + EF Core/SQLite + Static HTML)
+Fix focus areas: src/SciCalc/Platforms/Android/MainActivity.cs, src/SciCalc/MauiProgram.cs, src/SciCalc/Platforms/Windows/Package.appxmanifest, src/SciCalc/SciCalc.csproj. The user wants tests-first where possible (reproduce defects via failing tests — note these are platform bootstrap defects that may not be unit-testable on Linux without the MAUI workload; justify whatever test approach you choose; the workload-free test solution is SciCalc.sln with 230 passing tests).
 
-## 1. Architecture / Approach Overview
+Produce a high-level plan following Rich Domain Model PEAA and the repo architecture, deciding whether the task is simple enough to implement with just this high-level plan or needs a full /plan-and-design workflow.
 
-A **single ASP.NET Core web project** (minimal APIs) that serves both the REST API and the static HTML page. Physical components:
+Constraints: Work only in the current working directory. Do NOT commit. Do NOT modify files unless the workflow explicitly requires creating plan artifacts.
 
-- **Minimal API host** (`Program.cs`): registers routing, static files, rate limiting middleware, EF Core.
-- **Domain model**: a `ShortLink` entity that owns its behavior (URL validation, short-code assignment, click tracking) — no service blobs. `ShortCode` value object encapsulates base62 encoding/decoding and code validation (replaces a static utility class).
-- **Persistence**: EF Core `ShortenerDbContext` + SQLite (`Microsoft.EntityFrameworkCore.Sqlite`), one table, file `shortener.db`. Endpoints inject `ShortenerDbContext` directly (no repository abstraction needed at this scope).
-- **Rate limiting**: built-in ASP.NET Core `System.Threading.RateLimiting` middleware, fixed-window per client IP, applied to the create endpoint (429 on excess).
-- **Frontend**: `wwwroot/index.html` — hand-written HTML/CSS/JS, no framework, no build step. Served via `UseStaticFiles` + `UseDefaultFiles`; API under `/api`, redirect route at root `/{code}`.
+# High-Level Plan: SciCalc — Fix 3 Platform Bootstrap / Packaging Defects (Android MainApplication, Windows App.xaml, Icon/Splash Resources)
 
-Interaction: Browser loads `index.html` → JS calls `POST /api/links` / `GET /api/links` → endpoints use domain entity + `ShortenerDbContext` → SQLite. Clicking a short link hits `GET /{code}` → 302 redirect to original URL.
+## REVIEW VERDICT: APPROVE WITH CHANGES
 
-## 2. New Classes Planned
+**Reviewer:** plan-reviewer (via /review-high-level-plan workflow)
+**Date:** 2026-09-02
+**Verdict:** APPROVE-WITH-CHANGES (5 required amendments, 1 optional)
 
-| Class | Responsibilities | New State/Fields | Associations | Methods |
-|---|---|---|---|---|
-| `ShortLink` (domain entity) | Owns a shortened URL: validation, code derivation, click counting | `long Id`, `string OriginalUrl`, `ShortCode? Code` (nullable — null until `AssignCode` is called after first save), `DateTime CreatedAt`, `int ClickCount` | owns `ShortCode` value object | `ShortLink(string originalUrl)` ctor — validates absolute http/https URL, throws on invalid; `AssignCode(long id)` — sets `Code = ShortCode.FromId(id)` (called by endpoint after save assigns the auto-increment Id); `RegisterClick()` — increments `ClickCount` |
-| `ShortCode` (value object) | Encapsulates a base62 short code: encoding, decoding, validation, equality | `string Value` (the base62 string), alphabet const `[0-9a-zA-Z]` | owned by `ShortLink` | `ShortCode.FromId(long id)` — factory; encodes id to base62, throws on negative; `ShortCode.Parse(string code)` — factory; validates base62 chars, throws on null/empty/invalid; `ToString()` → `Value`. EF Core maps via `HasConversion` value converter (`ShortCode` ↔ `string` column), **not** `OwnsOne`. |
-| `ShortenerDbContext` | EF Core session/Unit of Work | `DbSet<ShortLink> Links` | maps `ShortLink` | `OnModelCreating` — configure keys/index on `Code` (unique) |
-| Endpoints (`LinkEndpoints` static class) | HTTP plumbing only — parse, delegate, map status codes | none | injects `ShortenerDbContext` directly (no repository abstraction — YAGNI for a single-project app with one persistence implementation) | `MapLinkEndpoints(WebApplication)`: `POST /api/links`, `GET /api/links`, `GET /{code}` |
-| DTOs (`CreateLinkRequest`, `LinkResponse`) | API contract decoupled from entity | `Url`, `Code`, `OriginalUrl`, `ShortUrl`, `ClickCount` | mirrors entity outward | none |
-| Rate limit config (in `Program.cs`) | Throttle link creation | policy: e.g. 20 requests / 60 s per IP, fixed window | applied to POST | `AddRateLimiter(...)` registration + `RequireRateLimiting` on POST |
-| `index.html` (static) | UI: one input, one button, list of links | — | calls REST API | fetch create/list, render list, anchor click → redirect |
+The plan's overall structure, architecture analysis, test strategy, and implementation sequence are sound. However, the plan was written against a **stale sibling worktree** and contains several factual errors about the current state of files in THIS worktree (branch tip `a614baa`). These errors change the nature of some fixes. All amendments below MUST be applied before implementation begins.
 
-Behavior placement honored: code derivation and validation live **on `ShortCode` value object** (owned by `ShortLink`), not in a static utility or service; the endpoint is a thin coordinator. No `IShortLinkRepository` interface — endpoints use `ShortenerDbContext` directly, keeping the codebase simple.
+### Required Amendments
 
-## 3. Data Flow / Control Flow
+**[A1] Section 0 - Environment note is WRONG: rewrite entirely.**
+The SciCalc tree IS in this worktree. `SciCalc.sln`, `SciCalc.App.sln`, and `src/SciCalc/SciCalc.csproj` all exist at the repo root. The claim that "this worktree contains the UrlShortener project at commit 28bff5b" is false -- the branch tip is `a614baa`. The plan's instruction to "run in a tree that contains SciCalc" is satisfied here. Remove the stale-sibling-directory references. The executor works in the current working directory.
 
-- **Create**: `POST /api/links {url}` → rate-limit middleware → DTO → `new ShortLink(url)` (validates; 400 on failure) → `db.Links.Add` + `SaveChanges` (gets auto-increment `Id`) → `link.AssignCode(link.Id)` → `SaveChanges` → `201 {code, shortUrl}`. (Two saves required because code derives from auto-increment Id; this is intentional and acceptable for simplicity.)
-- **Redirect**: `GET /{code:regex(^[0-9a-zA-Z]+$)}` → `db.Links.FirstOrDefault(l => l.Code == code)` → 404 if missing → `link.RegisterClick()` → save → `302 Location: link.OriginalUrl`. Route constraint ensures only base62-valid codes reach this endpoint; other paths fall through to static files or 404.
-- **List**: `GET /api/links` → `db.Links` query (all links, ordered by `CreatedAt` descending; no pagination — YAGNI) → 200 DTO array (empty array `[]` when no links exist) → page renders.
-- **UI**: on load `GET /api/links`; button `POST`s; list items are anchors to the short URL (click → 302).
+**[A2] Section 2 Defect 1 - Android MainApplication: NOT "verify-only"; it is a REAL fix (file is ABSENT).**
+The plan says `Platforms/Android/MainApplication.cs` "already exists and is correct". In THIS worktree, the directory contains ONLY `MainActivity.cs` and `AndroidManifest.xml`. `MainApplication.cs` does NOT exist. The required action must be changed from "Verify-only" to "Add the file" (use the template in section 3, which is correct).
 
-## 4. Integration Points / Project Structure (Greenfield)
+**[A3] Section 2 Defect 2 - Windows App.xaml.cs: both files are ABSENT, not just App.xaml.**
+The plan says `App.xaml.cs` "exists but is broken" with wrong base class `MauiWinApplication`. In THIS worktree, `Platforms/Windows/` contains ONLY `Package.appxmanifest` and `app.manifest`. Neither `App.xaml` nor `App.xaml.cs` exists. The action changes from "Add App.xaml; rewrite App.xaml.cs" to "Create BOTH App.xaml AND App.xaml.cs from scratch". The content contracts in section 3 remain correct. The negative test for the bogus `MauiWinApplication` string in section 4 is no longer applicable (there is no existing file to contain it), but is still harmless as a safety guard if kept.
 
-Repo is effectively empty (README.md and appsettings.json are Digital Worker tooling files, not application code); create:
+**[A4] Section 2 Defect 3 - Package.appxmanifest is NOT a "gutted stub"; it is a full standard manifest.**
+The plan says the manifest is a "gutted stub (`<Deployment ...></Deployment>` only)". In THIS worktree, `Package.appxmanifest` is a complete, well-formed manifest with `Package/Identity` (Name=com.scicalc.app, Publisher=CN=SciCalc, Version=1.0.0.0), `Properties` (Logo=appicon.png), `Dependencies`, `Resources`, `Applications/Application`, and `uap:VisualElements` with Square150x150Logo/Square44x44Logo/DefaultTile logos all set to `appicon.png` and SplashScreen Image=`splashscreen.png`. The referenced PNG files (`appicon.png`, `splashscreen.png`) are ABSENT from the repo, and `src/SciCalc/Resources/` does not exist, and `SciCalc.csproj` has no `MauiIcon`/`MauiSplashScreen` items.
+**Corrected action:** Do NOT "replace" the manifest wholesale. Instead: (a) add source SVG resources + `MauiIcon`/`MauiSplashScreen` csproj items (as the plan's section 3 correctly prescribes), and (b) update the manifest's logo/splash attribute values from literal `appicon.png`/`splashscreen.png` to `$placeholder$.png` so MAUI Resizetizer can substitute the generated asset paths. The rest of the manifest structure is retained. Section 3's manifest row and section 5 step 4 must be amended from "Replace stub with full template manifest" to "Update existing manifest asset references to $placeholder$.png".
 
-```
-UrlShortener/                (web project)
-  Program.cs
-  Domain/ShortLink.cs, ShortCode.cs
-  Data/ShortenerDbContext.cs
-  Api/LinkEndpoints.cs, Dtos.cs
-  wwwroot/index.html
-UrlShortener.Tests/          (xUnit)
-UrlShortener.sln
-```
+**[A5] Section 2 - Remove the "incidental csproj hygiene issue" paragraph about duplicate Windows TFM.**
+The plan claims `net10.0-windows10.0.19041.0` appears in both the unconditional `TargetFrameworks` AND the conditioned append. In THIS worktree, the csproj has:
+- Line 4: `<TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>` (NO windows TFM)
+- Line 5: `<TargetFrameworks Condition="...IsOSPlatform('windows')...">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>`
+There is no duplication. This "hygiene issue" does not exist. Remove the paragraph and all references to "optional TFM dedupe" throughout the plan (sections 3, 5, 7, 8).
 
-Existing files (`README.md`, `appsettings.json`) are untouched; `.gitignore` already suits .NET build output but **must be updated** to exclude `*.db` (SQLite database files).
+### Optional Amendment
+
+**[A6] Section 0 - Architecture description mentions `SciCalc.Application` project; verify it exists.**
+The plan references a three-layer architecture: `SciCalc -> SciCalc.Application -> SciCalc.Domain`. In this worktree, `SciCalc.sln` contains only `SciCalc.Domain` and `SciCalc.Tests`; `SciCalc.App.sln` adds the MAUI project. There is no `SciCalc.Application` project visible. The csproj references only `SciCalc.Domain`. The executor should verify whether the Application layer exists or if the architecture is two-layer (SciCalc -> SciCalc.Domain). This does not affect the plan's fixes (which are all in the presentation/platform layer) but the architecture description should be accurate.
+
+### Items Confirmed Correct (no changes needed)
+
+- **Section 1 (Architecture/RDM-PEAA Alignment):** Correct. All three defects are pure presentation/platform glue. No domain model impact. Anti-procedural checklist passes: no domain logic in platform bootstrap classes, no calculation or business state in `MainApplication`/`App`/manifest -- these are framework-mandated shells delegating to `MauiProgram.CreateMauiApp()`.
+- **Section 3 content contracts for MainApplication.cs, App.xaml, App.xaml.cs:** All correct as specified.
+- **Section 3 content contracts for SVG resources and MauiIcon/MauiSplashScreen csproj items:** Correct.
+- **Section 4 (Test Strategy):** Sound. Static conformance tests are the right approach given no MAUI workload on Linux. File existence + XML parsing + content regex assertions are the strongest executable checks available. Test cases are well-specified.
+- **Section 4 test for "not the empty `<Deployment>` stub":** Still valid as a guard, even though the manifest is not currently a stub. Keep it.
+- **Section 5 (Implementation Sequence):** Correct order (tests-first, then fixes, then green). Amend step 4 per A4.
+- **Section 6 (Assessment - simple task):** Agreed. No `/plan-and-design` escalation needed.
+- **Section 7 (Option (a) chosen):** Correct. MAUI Resizetizer + `$placeholder$` is the idiomatic approach.
+- **Section 8 (Scope):** Correct after removing TFM dedupe references.
+- **Section 9 (Acceptance Criteria):** Correct. Red-green demonstration, full test gate, no domain modifications.
+- **Anti-Procedural Checklist (per /system-architect):** PASSES. No domain logic introduced in platform classes. No external dependencies in domain layer. No calculations in presentation layer. `MainApplication` and `App` are thin bootstrap delegates -- anemic by design and correctly so for MAUI platform adapters.
+
+---
+
+## 0. Critical Environment Note (read first)
+
+- **This worktree contains the SciCalc app** at branch tip `a614baa`. `SciCalc.sln`, `SciCalc.App.sln`, and `src/SciCalc/SciCalc.csproj` are present at the repo root. All paths below are relative to the repo root.
+- **Toolchain:** .NET SDK 10, **no MAUI workload installed**, Linux. The MAUI head project `src/SciCalc/SciCalc.csproj` (TFMs `net10.0-android;net10.0-ios;net10.0-maccatalyst` plus `net10.0-windows10.0.19041.0` conditioned on Windows) **cannot be compiled on this machine**. `SciCalc.sln` contains only `SciCalc.Domain` and `SciCalc.Tests` (workload-free gate). `SciCalc.App.sln` includes the MAUI project for workload machines.
+
+## 1. Architecture / RDM-PEAA Alignment
+
+Repo architecture (from `Docs/_Current/plan.md` in the SciCalc tree): one-way dependency `SciCalc (MAUI Blazor Hybrid presentation) -> SciCalc.Application (thin facade/DTOs) -> SciCalc.Domain (all logic: Lexer, ExpressionParser, AST nodes, Calculator aggregate root, MemoryBank, HistoryLog)`. Domain has zero external dependencies; xUnit tests target only Domain/Application.
+
+**RDM impact: none.** All three defects live in the MAUI head's *platform adapter* layer (`Platforms/*`) and in packaging metadata (csproj resource items, appxmanifest). No domain entity, value object, or application service changes. The new classes (`MainApplication`, Windows `App`) are framework-mandated bootstrap shells — anemic by design and correctly so: they are PEAA "presentation/platform glue", not domain objects, and their only behavior is delegating to `MauiProgram.CreateMauiApp()`. The rich domain model (`Calculator` aggregate, expression AST, `CalculatorAppService` facade) is untouched, and the existing 230-test suite remains the domain regression gate.
+
+## 2. Defect Analysis (ground truth in THIS worktree, branch tip a614baa)
+
+| # | Reported defect | Actual state in this worktree | Required action |
+|---|---|---|---|
+| 1 | Android: no `MainApplication.cs` | `Platforms/Android/` contains ONLY `MainActivity.cs` and `AndroidManifest.xml`. **`MainApplication.cs` does NOT exist.** | **Real fix (add file).** Create `MainApplication.cs` per §3 template. Pin with conformance test (§4). |
+| 2 | Windows: lacks WinUI/MAUI app class | `Platforms/Windows/` contains ONLY `Package.appxmanifest` and `app.manifest`. **Neither `App.xaml` nor `App.xaml.cs` exists.** | **Real fix (create both files).** Add `App.xaml` and `App.xaml.cs` per §3 templates. |
+| 3 | Manifest references absent icon/splash files | `Package.appxmanifest` is a **complete, well-formed manifest** (Package/Identity, Properties, Dependencies, Resources, Applications, VisualElements) referencing `appicon.png` and `splashscreen.png` — but those PNG files are **absent from the repo**. `src/SciCalc/Resources/` **does not exist**. `SciCalc.csproj` has **no** `MauiIcon`/`MauiSplashScreen` items. | **Real fix.** Add source SVG resources + MauiIcon/MauiSplashScreen csproj items + update manifest asset paths from literal PNGs to `$placeholder$.png` (§3). Do NOT replace the manifest wholesale — only update logo/splash attribute values. |
+
+Note: the csproj has Windows TFM only in the conditioned `IsOSPlatform('windows')` line; there is no duplication. No TFM hygiene fix needed.
+
+## 3. New/Changed Files Planned
+
+| File | Action | Content contract |
+|---|---|---|
+| `src/SciCalc/Platforms/Android/MainApplication.cs` | **Add** | `[Application]` attr; `public class MainApplication : MauiApplication`; ctor `MainApplication(IntPtr handle, JniHandleOwnership ownership) : base(handle, ownership)`; `protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();` |
+| `src/SciCalc/Platforms/Windows/App.xaml` | **Add** | Root `<maui:MauiWinUIApplication x:Class="SciCalc.Platforms.Windows.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:maui="using:Microsoft.Maui" xmlns:local="using:SciCalc.Platforms.Windows">` with `Resources > ResourceDictionary.MergedDictionaries > <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />` (standard MAUI template). |
+| `src/SciCalc/Platforms/Windows/App.xaml.cs` | **Add** | `namespace SciCalc.Platforms.Windows;` `public partial class App : MauiWinUIApplication { public App() { this.InitializeComponent(); } protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp(); }` |
+| `src/SciCalc/Resources/AppIcon/appicon.svg` (+ optional `appiconfg.svg` foreground) | **Add** | Simple original SVG glyph (e.g., "√x" / calculator motif on brand background `#1e1e28` matching root `App.xaml` `PageBackgroundColor`). Source art only — MAUI Resizetizer generates all platform sizes at build time. |
+| `src/SciCalc/Resources/Splash/splash.svg` | **Add** | Simple centered glyph SVG; MAUI generates splash per platform. |
+| `src/SciCalc/SciCalc.csproj` | **Edit** | Add `<MauiIcon Include="Resources\AppIcon\appicon.svg" />` and `<MauiSplashScreen Include="Resources\Splash\splash.svg" BaseSize="128,128" Color="#1e1e28" />` item group (add `ForegroundFile`/`Color` on MauiIcon only if a foreground SVG is used). No other csproj changes; `WindowsPackageType=None` stays (unpackaged local runs still fine). No TFM dedupe needed (no duplication exists). |
+| `src/SciCalc/Platforms/Windows/Package.appxmanifest` | **Edit (update asset references only)** | The existing manifest structure is correct and complete. Update logo/splash attribute values from literal `appicon.png`/`splashscreen.png` to `$placeholder$.png` in: `Properties/Logo`, `uap:VisualElements` `Square150x150Logo`/`Square44x44Logo`, `uap:DefaultTile` logos, and `uap:SplashScreen Image`. This lets MAUI Resizetizer substitute generated asset names from `MauiIcon`/`MauiSplashScreen`. Do NOT replace the manifest wholesale. |
+| `tests/SciCalc.Packaging.Tests/` (new xUnit project, net10.0, **no reference to the MAUI head**) | **Add** + register in `SciCalc.sln` with full `Build.0` config entries (keep MAUI project excluded) | Static conformance tests (§4). Locates repo root by walking up from `AppContext.BaseDirectory` to the dir containing `SciCalc.sln`. |
+
+No changes to `MauiProgram.cs` (already correct: `UseMauiApp<App>()`, BlazorWebView, DI for `Calculator`/`CalculatorAppService`) or `MainActivity.cs` — focus-area files inspected and cleared.
+
+## 4. Test Strategy (tests-first) — and justification
+
+**Constraint:** these are platform bootstrap/packaging defects in the MAUI head, which cannot compile or run on this Linux box (no MAUI workload; Windows/Android TFMs and SDKs unavailable). Therefore runtime/unit tests against `MainApplication`/WinUI `App` are **impossible here**, and referencing the MAUI project from tests would break the workload-free gate. The strongest *executable* check available on Linux is **static conformance tests** — file/XML content assertions that encode exactly the contract the PR agent verifies. They reproduce all three defects as **failing tests first** (on the inspected tree: App.xaml missing, manifest stub, no Resources, no MauiIcon/MauiSplashScreen items → red), then go green after the fix. This is the chosen approach; compile-level verification on Windows/Android is documented as a deferred manual/CI step (§8).
+
+**Test cases to implement (`tests/SciCalc.Packaging.Tests`, xUnit `[Fact]`/`[Theory]`, file-I/O + `XDocument` only):**
+
+Android (defect 1):
+- `Platforms/Android/MainApplication.cs` exists.
+- Content contains `[Application]`, `: MauiApplication`, `MauiProgram.CreateMauiApp()`, and a ctor signature with `IntPtr` + `JniHandleOwnership`.
+
+Windows bootstrap (defect 2):
+- `Platforms/Windows/App.xaml` exists; parses as XML; root local-name `MauiWinUIApplication`; `x:Class="SciCalc.Platforms.Windows.App"`.
+- `App.xaml.cs` contains `partial class App : MauiWinUIApplication` and `MauiProgram.CreateMauiApp()`; does **not** contain the bogus `MauiWinApplication` (word-boundary match so `MauiWinUIApplication` doesn't false-positive).
+
+Resources & manifest (defect 3):
+- `SciCalc.csproj` contains ≥1 `MauiIcon` and ≥1 `MauiSplashScreen` item; each `Include` path resolves to an existing file under `src/SciCalc/Resources/`.
+- `Resources/AppIcon/` and `Resources/Splash/` each contain ≥1 file.
+- `Package.appxmanifest` parses; has `Package/Identity` with non-empty `Name`+`Version`, `Applications/Application`, and `VisualElements`; every logo/splash attribute value is either `$placeholder$.png` (allowed only when csproj has MauiIcon/MauiSplashScreen — consistency rule) or a path that exists on disk; the manifest is **not** the empty `<Deployment>` stub.
+- Cross-check: if manifest uses `$placeholder$`, csproj MUST declare both `MauiIcon` and `MauiSplashScreen` (and vice versa).
+
+Regression gate (unchanged): `dotnet test SciCalc.sln` → the existing 230 Domain/Application tests stay green; new packaging tests included via sln registration.
 
 ## 5. Implementation Sequence
 
-1. Solution + projects scaffold; update `.gitignore` to add `*.db`; `ShortCode` value object + `ShortLink` entity with unit tests (TDD).
-2. EF Core: `ShortenerDbContext`, SQLite wiring, `EnsureCreated` on startup.
-3. Endpoints (create/list/redirect with route constraint) + integration tests.
-4. Rate-limiting policy + 429 test.
-5. Static `index.html` + manual verification.
+1. Scaffold `tests/SciCalc.Packaging.Tests` (xUnit, net10.0, Microsoft.NET.Test.Sdk 17.14.1 / xunit 2.9.3 / runner 3.1.0 — match existing test projects), add to `SciCalc.sln` with Build.0 entries; write §4 tests → **run → red** (defects reproduced).
+2. Defect 1: add Android `MainApplication.cs` (§3 contract).
+3. Defect 2: add both `App.xaml` and `App.xaml.cs` (partial, `MauiWinUIApplication`).
+4. Defect 3: add `Resources/AppIcon/appicon.svg` + `Resources/Splash/splash.svg`; add `MauiIcon`/`MauiSplashScreen` to csproj; update manifest asset references from literal PNGs to `$placeholder$.png`.
+5. **Run → green**: new conformance tests + full `dotnet test SciCalc.sln` (existing tests + new).
+6. Manual diff review: no domain/application files touched; no commit (per constraints).
 
 ## 6. Assessment
 
-**Simple enough to implement from this high-level plan** — one entity, one value object, one DbContext, three endpoints, one static page; no complex associations or cross-aggregate logic. A full `/plan-and-design` workflow is **not** required.
+**Simple enough to implement from this high-level plan — a full `/plan-and-design` workflow is NOT required.** The fixes are template-determined (MAUI conventions leave no design latitude), touch only platform glue + packaging metadata, involve zero domain-model or API design decisions, and the only option choice (asset strategy) is resolved in favor of the idiomatic MAUI source-resource approach (option a). Risks are environmental (no MAUI workload here), not architectural.
 
-## 7. Assumptions, Decisions, Trade-offs
+## 7. Assumptions / Decisions / Trade-offs
 
-- **No architecture doc**: `Docs/architecture.md` does not exist in this repo. This plan is self-contained.
-- **Code generation**: derive code from SQLite autoincrement `Id` via `ShortCode.FromId(id)` (base62) → zero collisions by construction, no retry loop. Trade-off: sequential/predictable codes (acceptable, no auth demo).
-- **Two-save create flow**: First save to get auto-increment `Id`, then `AssignCode(id)` + second save. Acceptable for simplicity; the alternative (pre-generating codes) adds complexity.
-- **Code length**: typically 1–7 chars for realistic ID ranges (up to ~3.5 trillion); grows naturally from Id with no fixed padding. At `long.MaxValue` the code is ~11 chars.
-- **Alphabet**: `[0-9a-zA-Z]`; `ShortCode.Parse` validates membership.
-- **Route constraint**: `GET /{code:regex(^[0-9a-zA-Z]+$)}` to prevent the catch-all from swallowing favicon, robots.txt, or other non-API paths.
-- **No repository abstraction**: endpoints use `ShortenerDbContext` directly. For this scope (3 endpoints, one persistence target, integration-tested with WebApplicationFactory) an `IShortLinkRepository` is YAGNI.
-- **Rate limiting**: built-in in-memory middleware (single instance). Distributed store (Redis) out of scope.
-- **Storage init**: `Database.EnsureCreated()` for simplicity vs. migrations (optional upgrade path noted).
-- **Duplicates**: same long URL may be submitted multiple times → new short link each time (simplest semantics).
-- **Custom slugs**: out of scope (generated codes only).
-- **No auth, no expiry, no deletion.**
+- **Option (a) chosen** (MauiIcon/MauiSplashScreen source SVGs + `$placeholder$` manifest) over hand-sized PNGs: single source of truth, Resizetizer guarantees size/manifest consistency, matches every MAUI template; trade-off is that actual PNG generation is only verifiable on a Windows/MAUI build (deferred, §8).
+- SVG art will be simple original glyphs (no external assets/licensing concerns).
+- Static conformance tests accepted as the defect-reproduction mechanism; justification in §4. They pin the PR-agent contract, run in the workload-free gate, and are honest about not proving compilation.
+- `WindowsPackageType=None` retained; manifest correctness still enforced because packaging is a supported future path and the PR agent flags it.
+- The existing `Package.appxmanifest` is retained and only its asset reference values are updated (not replaced wholesale), since it is a complete and valid manifest.
 
 ## 8. In Scope / Out of Scope
 
-- **In**: create/list/redirect API, base62 codes, per-IP rate limiting (429), SQLite persistence, click counting, polished single-page UI (input, button, link list, click-to-redirect), automated tests.
-- **Out**: authentication/users, custom aliases, link expiry/deletion, analytics UI, distributed rate limiting, Docker/deployment, multiple frameworks or build steps for frontend.
+- **In:** the 3 defects; packaging conformance test project; keeping the test gate green; csproj resource items; manifest asset path updates; all three platform bootstrap files created.
+- **Out:** domain/application code changes; MAUI workload installation; actual Windows/Android/MacCatalyst compilation or on-device runs (deferred to a Windows+MAUI CI lane: `dotnet build src/SciCalc -f net10.0-windows10.0.19041.0` and, if packaged, verifying generated `Assets/*` against the manifest); iOS/MacCatalyst bootstrap review (not flagged); committing changes.
 
 ## 9. Acceptance Criteria
 
-- `POST /api/links` with valid absolute http(s) URL → 201 with base62 `code` and `shortUrl`; invalid URL → 400.
-- `GET /{code}` → 302 to original URL; unknown code → 404; click count increments.
-- `GET /api/links` → JSON list of created links (code, url, clicks).
-- Exceeding POST rate limit from one IP → 429.
-- `index.html` loads at `/`, creates and lists links without a build step, links are clickable and redirect.
-- All tests pass: `dotnet test`.
+- All §4 conformance tests fail before and pass after the fix (red→green demonstrated).
+- `dotnet test SciCalc.sln` green: 230 pre-existing tests + new packaging tests.
+- `Platforms/Windows/App.xaml` + corrected `App.xaml.cs` (`partial : MauiWinUIApplication`) present; Android `MainApplication.cs` present and correct.
+- csproj declares `MauiIcon`/`MauiSplashScreen` pointing at existing `Resources/AppIcon`/`Resources/Splash` files; manifest is a complete WinUI manifest whose asset references are consistent with those resources.
+- No modifications under `src/SciCalc.Domain`, `src/SciCalc.Application`, or existing test projects; no commits.
+
+---
+
+---
+
+---
+
+# User Prompt
+
+Fix 2 defects found by PR agent on SciCalc (.NET MAUI Blazor Hybrid scientific calculator): (1) `MainPage.razor` illegally doubles as a MAUI `ContentPage` and a Blazor component; (2) root-level `dotnet test` against `SciCalc.sln` hits `NETSDK1147` because the MAUI project is in the solution, contradicting the documented workload-free verification workflow. Assess, agree/disagree, plan the fix.
+
+# High-Level Plan: SciCalc PR Defects D1 (MainPage page/component split) & D2 (workload-free verification solution)
+
+## 0. Defect Assessment
+
+Both defects are **agreed with — verified against the source tree** (branch tip `6c19549` on `origin/feature-card-6a95cde63dd6d80a97e9b10b-20260901001521336`; this worktree checked a stale tree — the code must be restored to this branch before implementation).
+
+- **D1 confirmed.** `src/SciCalc/MainPage.razor` declares `@inherits ContentPage` while containing a `<BlazorWebView>` markup block. Blazor Razor components may only inherit from `IComponent`-compatible bases (default `ComponentBase`); `Microsoft.Maui.Controls.ContentPage` is not one, and the generated `BuildRenderTree` override has no valid base. Simultaneously, `App.cs` (`public App() => MainPage = new MainPage()`) requires `MainPage` to be a MAUI `Page`. The file claims both incompatible roles; on real MAUI TFMs the build/runtime contract cannot hold. Fix as the PR agent prescribed: a conventional MAUI `MainPage` (XAML + code-behind) hosting the `BlazorWebView`, with `Components/CalculatorPage.razor` as the sole Blazor root component.
+- **D2 confirmed.** `SciCalc.sln` references `src/SciCalc/SciCalc.csproj` (MAUI). `dotnet test` against the solution builds every project, so on workload-free machines it fails with `NETSDK1147`, while `README.md` advertises root-level `dotnet test` as the quick verification path. The documentation and solution membership contradict each other.
+
+`SciCalc.Tests` references only `SciCalc.Domain` — the two-project verification set is already clean; only the solution/document wiring is wrong.
+
+## 1. Architecture / Approach Overview
+
+Two independent, mechanical fixes; no domain-model changes.
+
+- **D1 — separate the MAUI host page from the Blazor component.** Replace `src/SciCalc/MainPage.razor` with a conventional MAUI page pair `MainPage.xaml` + `MainPage.xaml.cs` (class `SciCalc.MainPage : ContentPage`). The XAML declares `BlazorWebView` with `HostPage="wwwroot/index.html"` and one `RootComponent` (`Selector="#app"`, `ComponentType="Components.CalculatorPage"`). `Components/CalculatorPage.razor` remains the Blazor component. `App.cs` continues to construct `new MainPage()`; `_Imports.razor` and `MauiProgram.cs` are untouched.
+- **D2 — split verification from app packaging.** `SciCalc.sln` is reduced to `SciCalc.Domain` + `SciCalc.Tests` (workload-free; root `dotnet test` works as documented). A new `SciCalc.App.sln` includes all three projects for workload machines doing MAUI builds. Both READMEs are updated to state this layout explicitly.
+
+Physical components and interaction: **Host (MAUI `App` → `MainPage : ContentPage` → `BlazorWebView` → root component `CalculatorPage`) → `Calculator` domain singleton (DI via `MauiProgram`) → `SciCalc.Domain` engine.** Verification path: `SciCalc.sln` {`SciCalc.Domain`, `SciCalc.Tests`} only; app path: `SciCalc.App.sln` adds the MAUI `SciCalc` project.
+
+## 2. New Classes / Changes Planned
+
+| Class | Responsibilities | New State/Fields | Associations | Methods |
+|---|---|---|---|---|
+| `MainPage` (new, in `MainPage.xaml` + `MainPage.xaml.cs`) | MAUI `ContentPage` that hosts the `BlazorWebView` | none beyond `ContentPage` | owns the `BlazorWebView`; root component = `Components.CalculatorPage` | `InitializeComponent()` (from XAML codegen); constructor `public MainPage()` |
+| (deleted) `MainPage.razor` | incorrectly merged roles | — | — | — |
+
+New solution artifact: `SciCalc.App.sln` (Domain + Tests + MAUI app). Modified: `SciCalc.sln` (drop MAUI project GUID `{0E0EA705-C8A8-4691-AD58-F620FF2B56A6}` from project list, configuration platforms, and nested-projects sections), `README.md`, `src/SciCalc/README.md`.
+
+No new domain classes, associations, or methods — the Domain-first / anti-procedural checklist is satisfied because this change introduces no domain behavior; behavior remains on the existing `Calculator` aggregate and value objects.
+
+## 3. Data Flow / Control Flow
+
+- **App startup**: `MauiProgram.CreateMauiApp()` → `App` ctor → `MainPage = new MainPage()` → XAML builds `BlazorWebView` → Blazor renders `CalculatorPage` → presses are routed to the DI singleton `Calculator`. (Control flow only; unchanged semantics.)
+- **Verification**: root `dotnet test` ([`SciCalc.sln` = Domain + Tests]) → `xUnit` runs 230 tests without enumerating MAUI targets. `SciCalc.App.sln` is only used on machines with `maui` workloads.
+
+## 4. Integration Points / Structure
+
+```
+SciCalc.sln              -> SciCalc.Domain, SciCalc.Tests        (workload-free verification)
+SciCalc.App.sln          -> + src/SciCalc (MAUI)                 (workload machines only)
+src/SciCalc/
+  MainPage.xaml(+cs)     (replaces MainPage.razor)
+  Components/CalculatorPage.razor (unchanged)
+README.md, src/SciCalc/README.md (updated layout + verify sections)
+```
+
+The README-described scratch Razor harness (plain `net10.0` SDK, `FrameworkReference Microsoft.AspNetCore.App`, MAUI packages, `Platforms/**` excluded) remains the Linux compile-check technique for the UI files, since real MAUI TFMs cannot build here.
+
+## 5. Implementation Sequence
+
+1. **D1**: delete `src/SciCalc/MainPage.razor`; add `MainPage.xaml` + `MainPage.xaml.cs` with the `BlazorWebView` / `CalculatorPage` wiring; verify `App.cs` compiles against the new type.
+2. **D2**: remove the MAUI project from `SciCalc.sln`; create `SciCalc.App.sln` including all three projects.
+3. Update `README.md` and `src/SciCalc/README.md` (solution layout, verify commands, MAUI workload caveat now references `SciCalc.App.sln`).
+4. Validate: `dotnet test` (or `dotnet test SciCalc.sln`) at repo root → all 230 tests pass; compile-check UI via the scratch Razor harness → 0 errors.
+
+## 6. Assessment
+
+**Simple enough for this high-level plan; `/plan-and-design` escalation not required.** The fixes are small, well-understood, and mechanical (one page split, one solution reorganization, docs updates); no cross-aggregate design work is involved.
+
+## 7. Assumptions, Decisions, Trade-offs
+
+- **XAML over a C#-only `ContentPage`**: chose the conventional XAML pair because it matches the standard MAUI template and keeps declarative WebView wiring readable; a C#-only page was the alternative. Either satisfies the defect; XAML is the normative choice.
+- **Two solutions rather than one with conditional membership**: `SciCalc.sln` (verification) + `SciCalc.App.sln` (full app). Trade-off: two files to maintain, but root `dotnet test` becomes genuinely workload-free as documented, and IDE/Windows users keep a complete solution.
+- **READMEs updated in both locations**: root README's "Quick verification" claim becomes true; `src/SciCalc/README.md` Solution layout describes both solutions and re-points the `NETSDK1147` caveat to `SciCalc.App.sln`.
+- **Scratch harness retained for Linux compile verification** — MAUI TFMs stay unbuildable in the sandbox; that gate is documented and accepted.
+- **No CI workflow file exists in-repo** (Digital Worker executes verification directly), so "configure CI" reduces to documenting the root command; misconfiguration risk is minimal.
+
+## 8. In Scope / Out of Scope
+
+- **In**: MainPage split (D1), solution split + README updates (D2), re-verification of the 230 domain tests, UI compile-check via scratch harness.
+- **Out**: any calculator behavior change, MAUI-workload installation on the sandbox, restructuring of `Calculator`/Domain, CI pipeline files, packaging/deployment.
+
+## 9. Acceptance Criteria
+
+- `src/SciCalc` has no `MainPage.razor`; `MainPage` is a `ContentPage` (XAML + code-behind) whose `BlazorWebView` registers `Components.CalculatorPage` as its sole root component; `App` still sets `MainPage = new MainPage()`.
+- Scratch Razor harness compile-check of `src/SciCalc` → 0 errors / 0 warnings.
+- `SciCalc.sln` contains exactly `SciCalc.Domain` and `SciCalc.Tests`; root-level `dotnet test` exits 0 (230/230) with no `NETSDK1147` and no reference to the MAUI project.
+- `SciCalc.App.sln` includes the MAUI project for workload machines.
+- Both READMEs describe the new solution layout and the correct verification/build commands.
 
 ## 10. Test Cases to Implement
 
-### Unit — ShortCode (value object)
-- `ShortCode.FromId(0)` → `Value` is `"0"` (zero edge)
-- `ShortCode.FromId(1)` → `"1"`, `FromId(9)` → `"9"`, `FromId(10)` → `"a"` (digit-to-letter transition)
-- `ShortCode.FromId(61)` → last single-char code `"Z"` (upper boundary of 1-char codes)
-- `ShortCode.FromId(62)` → first two-char code `"10"` (carry boundary)
-- `ShortCode.FromId(63)` → `"11"` (second two-char code)
-- `ShortCode.FromId(3843)` → last two-char code (upper boundary of 2-char codes)
-- `ShortCode.FromId(3844)` → first three-char code (carry boundary)
-- `ShortCode.FromId(long.MaxValue)` → valid string without overflow
-- `ShortCode.FromId(negative)` → throws `ArgumentOutOfRangeException`
-- `ShortCode.Parse("0")` → `Value` is `"0"`, `Parse("Z")` → `"Z"` (single-char boundaries)
-- `ShortCode.Parse("10")` → valid (two-char boundary)
-- `ShortCode.Parse("")` → throws (empty string)
-- `ShortCode.Parse(null)` → throws
-- `ShortCode.Parse("abc!@#")` → throws (invalid characters)
-- `ShortCode.Parse("abc def")` → throws (whitespace in code)
-- Round-trip: `ShortCode.Parse(ShortCode.FromId(n).Value)` equals `ShortCode.FromId(n)` for values 0, 1, 61, 62, 63, 3843, 3844, 100000, `long.MaxValue`
-- Equality: two `ShortCode` instances with same value are equal (`Equals`, `==`, `GetHashCode`)
-
-### Unit — ShortLink
-- Ctor with valid `http://` URL → succeeds, sets `OriginalUrl`, `CreatedAt` set, `ClickCount` = 0, `Code` is null
-- Ctor with valid `https://` URL → succeeds
-- Ctor with `null` → throws
-- Ctor with `""` (empty string) → throws
-- Ctor with `"   "` (whitespace-only) → throws
-- Ctor with `"example.com"` (no scheme) → throws
-- Ctor with `"ftp://example.com"` (non-http scheme) → throws
-- Ctor with relative URL `"/path/page"` → throws
-- `AssignCode(id)` with known id → sets `Code` to `ShortCode` matching `ShortCode.FromId(id)`
-- `AssignCode` with `id = 0` → sets `Code` to `ShortCode` with value `"0"` (edge case: auto-increment typically starts at 1 but entity must handle it)
-- `RegisterClick()` once → `ClickCount` = 1
-- `RegisterClick()` three times → `ClickCount` = 3
-
-### Integration (WebApplicationFactory, in-memory/temp SQLite)
-- `POST /api/links` with valid https URL → 201 with `code` and `shortUrl` in response body
-- `POST /api/links` with valid http URL → 201 (both schemes accepted)
-- `POST /api/links` with empty body → 400
-- `POST /api/links` with malformed JSON → 400
-- `POST /api/links` with `url: ""` → 400
-- `POST /api/links` with `url: "not-a-url"` → 400
-- `POST /api/links` with `url: "ftp://x.com"` → 400
-- Two sequential creates → each gets unique code
-- `GET /{code}` for existing link → 302 with correct `Location` header
-- `GET /{code}` for unknown code → 404
-- `GET /abc!@#` (invalid base62 chars in path) → does not match redirect route (falls through to 404 or static files)
-- `GET /` → serves `index.html` (default file), not redirect endpoint
-- `GET /api/links` when no links exist → 200 with empty JSON array `[]`
-- `GET /api/links` after creating N links → returns all N in response, ordered by most recent first
-- Click count increments: create link → redirect via `GET /{code}` → `GET /api/links` → verify `clickCount` = 1
-- Multiple redirects increment count accurately: redirect 3 times → verify `clickCount` = 3
-
-### Rate-limit integration
-- Burst POSTs up to policy limit → all succeed (200/201)
-- Burst POSTs at limit+1 → the excess request returns 429
-- Requests from different IPs (simulated via headers or test config) are rate-limited independently
-- After the fixed window expires, requests succeed again (use a test-friendly small window)
-
-### Concurrency
-- Two simultaneous `POST /api/links` requests → both succeed with distinct codes (no duplicate code collision)
-
-### Additional Tests for Mutation Coverage (Review Additions)
-
-#### Unit — ShortCode (additional boundary / mutation-killing tests)
-- `ShortCode.FromId(35)` → `"z"` (last lowercase letter in alphabet)
-- `ShortCode.FromId(36)` → `"A"` (first uppercase letter — lowercase-to-uppercase boundary)
-- `ShortCode.Parse("!")` → throws (single invalid character)
-- `ShortCode.Parse("abc!")` → throws (valid prefix with trailing invalid character — ensures full-string validation)
-- Inequality: `ShortCode.FromId(1)` is NOT equal to `ShortCode.FromId(2)` (kills `Equals`-always-true mutants)
-- Inequality: `ShortCode.FromId(1).GetHashCode()` differs from `ShortCode.FromId(2).GetHashCode()` (kills constant-hashcode mutants)
-
-#### Unit — ShortLink (additional mutation-killing tests)
-- `AssignCode` called a second time rejects reassignment (verifies the code invariant)
-- Ctor preserves `OriginalUrl` verbatim — e.g., `"https://Example.COM/Path"` stored as-is, no normalization
-
-#### Integration (additional mutation-killing tests)
-- `POST /api/links` with `url: null` in JSON body → 400 (distinct from empty string — different deserialization path)
-- `POST /api/links` response body `shortUrl` field contains the generated code as a substring
-- `GET /api/links` response includes correct field names: `code`, `originalUrl`, `shortUrl`, `clickCount`
-- `GET /{code}` for a numeric-only code (e.g., `"1"`) → 302 (ensures digit-only codes are routed correctly)
-- `GET /{code}` (redirect) is NOT rate-limited: succeeds even when POST rate limit is exhausted for that IP
+- **Regression (existing)**: all 230 `SciCalc.Tests` pass via root `dotnet test` on `SciCalc.sln`.
+- **D1 verification**: scratch harness compile-check passes; `grep` guards — no `MainPage.razor` remains under `src/SciCalc`; `App.cs` target type resolves.
+- **D2 verification**: root `dotnet test` output lists only Domain/Tests projects; no `NETSDK1147`; exit code 0.
+- Optional manual check on a workload machine (out of sandbox scope): `dotnet build SciCalc.App.sln` succeeds.

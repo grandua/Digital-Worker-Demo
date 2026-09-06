@@ -1,11 +1,18 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener", "UrlShortener\UrlShortener.csproj", "{5740AD1B-2303-4580-910F-B8B9E2DA2F6F}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Presentation", "Presentation", "{B3000001-1111-4111-8111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener.Tests", "UrlShortener.Tests\UrlShortener.Tests.csproj", "{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UnitTests", "UnitTests", "{B3000002-2222-4222-8222-222222222222}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IntegrationTests", "IntegrationTests", "{B3000003-3333-4333-8333-333333333333}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener.Web", "UrlShortener.Web\UrlShortener.Web.csproj", "{5740AD1B-2303-4580-910F-B8B9E2DA2F6F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener.UnitTests", "UnitTests\UrlShortener.UnitTests\UrlShortener.UnitTests.csproj", "{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener.IntegrationTests", "IntegrationTests\UrlShortener.IntegrationTests\UrlShortener.IntegrationTests.csproj", "{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,8 +48,25 @@ Global
 		{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7}.Release|x64.Build.0 = Release|Any CPU
 		{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7}.Release|x86.ActiveCfg = Release|Any CPU
 		{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7}.Release|x86.Build.0 = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|x64.Build.0 = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Debug|x86.Build.0 = Debug|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|x64.ActiveCfg = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|x64.Build.0 = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|x86.ActiveCfg = Release|Any CPU
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5740AD1B-2303-4580-910F-B8B9E2DA2F6F} = {B3000001-1111-4111-8111-111111111111}
+		{92B66C89-5FE2-4704-BE76-6F9A4CA8F5D7} = {B3000002-2222-4222-8222-222222222222}
+		{7A4E1C55-6E24-4B7A-9A34-1D6A9C33B5F1} = {B3000003-3333-4333-8333-333333333333}
 	EndGlobalSection
 EndGlobal

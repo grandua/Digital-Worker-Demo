@@ -1,0 +1,226 @@
+@using SciCalc.Domain
+@using System.Globalization
+@inject Calculator Calc
+
+<div class="calc">
+    <header class="calc-header">
+        <span class="calc-title">SciCalc</span>
+        <button class="mode-toggle" @onclick="() => Press(InputKey.DegRadToggle)">@ModeText</button>
+    </header>
+    <section class="display">
+        @if (Calc.Locked)
+        {
+            <div class="error-title">Error</div>
+            <div class="error-reason">@Reason(Calc.ActiveError!.Value)</div>
+        }
+        else
+        {
+            <div class="entry">@ExpressionText</div>
+            <div class="result">@ResultText</div>
+        }
+    </section>
+    <section class="memory">
+        @foreach (MemorySlot slot in memorySlots)
+        {
+            <div class="mem-group" @key="slot.Id">
+                <span class="mem-badge @(Calc.Memory.IsNonEmpty(slot.Id) ? "on" : "")">@slot.Name</span>
+                <button class="key mem" @onclick="() => Press(slot.Store)">STO</button>
+                <button class="key mem" @onclick="() => Press(slot.Recall)">MR</button>
+                <button class="key mem" @onclick="() => Press(slot.Clear)">MC</button>
+            </div>
+        }
+    </section>
+    <div class="calc-body">
+        <section class="keypad">
+            <div class="pad sci">
+                @foreach (KeyDefinition key in functionKeys)
+                {
+                    <button class="key sci" @key="key.Key" @onclick="() => Press(key.Key)">@key.Label</button>
+                }
+            </div>
+            <div class="pad main">
+                @foreach (KeyDefinition key in mainKeys)
+                {
+                    <button class="@key.Style" @key="key.Key" @onclick="() => Press(key.Key)">@key.Label</button>
+                }
+            </div>
+        </section>
+        <aside class="history-panel">
+            <h2 class="history-title">History</h2>
+            @if (Calc.History.Count == 0)
+            {
+                <p class="history-empty">No calculations yet.</p>
+            }
+            else
+            {
+                <div class="history-list">
+                    @foreach (var item in NewestFirst)
+                    {
+                        <button class="history-item" @key="item.Index" @onclick="() => Restore(item.Entry)">
+                            <span class="history-expression">@HistoryText(item.Entry.Tokens)</span>
+                            <span class="history-result">= @Format(item.Entry.ResultValue)</span>
+                        </button>
+                    }
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+@code {
+    // TODO(review): Add component coverage for every keypad route and rendered session state.
+    private readonly Dictionary<OperatorKind, string> operatorGlyphs = new()
+    {
+        [OperatorKind.Add] = "+",
+        [OperatorKind.Subtract] = "−",
+        [OperatorKind.Multiply] = "×",
+        [OperatorKind.Divide] = "÷",
+        [OperatorKind.Power] = "^",
+        [OperatorKind.Modulo] = "mod",
+    };
+    private readonly Dictionary<FunctionKind, string> functionGlyphs = new()
+    {
+        [FunctionKind.Sin] = "sin",
+        [FunctionKind.Cos] = "cos",
+        [FunctionKind.Tan] = "tan",
+        [FunctionKind.Asin] = "asin",
+        [FunctionKind.Acos] = "acos",
+        [FunctionKind.Atan] = "atan",
+        [FunctionKind.Sinh] = "sinh",
+        [FunctionKind.Cosh] = "cosh",
+        [FunctionKind.Tanh] = "tanh",
+        [FunctionKind.Log10] = "log",
+        [FunctionKind.Ln] = "ln",
+        [FunctionKind.Exp] = "e^",
+        [FunctionKind.TenPow] = "10^",
+        [FunctionKind.Square] = "sqr",
+        [FunctionKind.Cube] = "cube",
+        [FunctionKind.Sqrt] = "√",
+        [FunctionKind.Cbrt] = "∛",
+        [FunctionKind.Abs] = "abs",
+        [FunctionKind.Reciprocal] = "recip",
+    };
+    private readonly Dictionary<ConstantKind, string> constantGlyphs = new()
+    {
+        [ConstantKind.Pi] = "π",
+        [ConstantKind.E] = "e",
+    };
+
+    private readonly List<KeyDefinition> functionKeys =
+    [
+        new("sin", InputKey.Sin),
+        new("cos", InputKey.Cos),
+        new("tan", InputKey.Tan),
+        new("asin", InputKey.Asin),
+        new("acos", InputKey.Acos),
+        new("atan", InputKey.Atan),
+        new("sinh", InputKey.Sinh),
+        new("cosh", InputKey.Cosh),
+        new("tanh", InputKey.Tanh),
+        new("log", InputKey.Log10),
+        new("ln", InputKey.Ln),
+        new("eˣ", InputKey.Exp),
+        new("10ˣ", InputKey.TenPow),
+        new("n!", InputKey.Factorial),
+        new("x²", InputKey.Square),
+        new("x³", InputKey.Cube),
+        new("√", InputKey.Sqrt),
+        new("³√", InputKey.Cbrt),
+        new("1/x", InputKey.Reciprocal),
+        new("|x|", InputKey.Abs),
+        new("π", InputKey.Pi),
+        new("e", InputKey.E),
+    ];
+
+    private readonly List<KeyDefinition> mainKeys =
+    [
+        new("AC", InputKey.AllClear, "key danger"),
+        new("DEL", InputKey.Delete, "key warn"),
+        new("(", InputKey.OpenParen),
+        new(")", InputKey.CloseParen),
+        new("÷", InputKey.Divide),
+        new("7", InputKey.Digit7),
+        new("8", InputKey.Digit8),
+        new("9", InputKey.Digit9),
+        new("%", InputKey.Percent),
+        new("×", InputKey.Multiply),
+        new("4", InputKey.Digit4),
+        new("5", InputKey.Digit5),
+        new("6", InputKey.Digit6),
+        new("^", InputKey.Power),
+        new("−", InputKey.Subtract),
+        new("1", InputKey.Digit1),
+        new("2", InputKey.Digit2),
+        new("3", InputKey.Digit3),
+        new("mod", InputKey.Modulo),
+        new("+", InputKey.Add),
+        new("0", InputKey.Digit0),
+        new(".", InputKey.Dot),
+        new("ANS", InputKey.Ans),
+        new("=", InputKey.Eq, "key equals wide"),
+    ];
+
+    private readonly List<MemorySlot> memorySlots =
+    [
+        new("M1", MemorySlotId.M1, InputKey.StoreM1, InputKey.RecallM1, InputKey.ClearM1),
+        new("M2", MemorySlotId.M2, InputKey.StoreM2, InputKey.RecallM2, InputKey.ClearM2),
+        new("M3", MemorySlotId.M3, InputKey.StoreM3, InputKey.RecallM3, InputKey.ClearM3),
+    ];
+
+    private IEnumerable<(HistoryEntry Entry, int Index)> NewestFirst =>
+        Calc.History.Select((entry, index) => (entry, index)).Reverse();
+
+    private string ModeText => Calc.Mode == AngleMode.Degrees ? "DEG" : "RAD";
+
+    private string ExpressionText => Calc.Buffer.Tokens.Count == 0 ? "0" : DisplayText(Calc.Buffer.Tokens, isLive: true);
+
+    private string HistoryText(IReadOnlyList<Token> tokens) => DisplayText(tokens, isLive: false);
+
+    private string DisplayText(IReadOnlyList<Token> tokens, bool isLive) => string.Concat(
+        tokens.Select((token, index) => RenderToken(token, isLive && index == tokens.Count - 1)));
+
+    private string RenderToken(Token token, bool showLiveEdit) => token.Kind switch
+    {
+        TokenKind.Number => RenderNumber(token, showLiveEdit),
+        TokenKind.Operator => operatorGlyphs[token.OperatorKind!.Value],
+        TokenKind.Function => RenderFunction(token.FunctionKind!.Value),
+        TokenKind.OpenParen => "(",
+        TokenKind.CloseParen => ")",
+        TokenKind.Percent => "%",
+        TokenKind.Constant => constantGlyphs[token.ConstantKind!.Value],
+        _ => string.Empty,
+    };
+
+    private string RenderNumber(Token token, bool showLiveEdit) =>
+        showLiveEdit && Calc.Buffer.EditingNumber is { } editing
+            ? editing
+            : token.NumericValue!.Value.ToString(CultureInfo.InvariantCulture);
+
+    private string RenderFunction(FunctionKind kind) =>
+        kind == FunctionKind.Factorial ? "!" : functionGlyphs[kind];
+
+    private string ResultText => Calc.Preview is { } preview
+        ? $"= {Format(preview)}"
+        : Calc.LastAnswer is { } answer ? $"= {Format(answer)}" : string.Empty;
+
+    private void Press(InputKey key) => Calc.Press(key);
+
+    private void Restore(HistoryEntry entry) => Calc.RestoreHistory(entry);
+
+    private string Format(double value) => value.ToString("G15", CultureInfo.InvariantCulture);
+
+    private string Reason(CalcError error) => error switch
+    {
+        CalcError.DivisionByZero => "Division by zero",
+        CalcError.NegativeSqrt => "Negative sqrt",
+        CalcError.NonPositiveLog => "Non-positive log",
+        CalcError.InvalidFactorial => "Invalid factorial",
+        CalcError.AsinAcosOutOfRange => "Out of domain",
+        CalcError.Overflow => "Overflow",
+        _ => "Malformed expression",
+    };
+
+    private sealed record KeyDefinition(string Label, InputKey Key, string Style = "key");
+
+    private sealed record MemorySlot(string Name, MemorySlotId Id, InputKey Store, InputKey Recall, InputKey Clear);
+}

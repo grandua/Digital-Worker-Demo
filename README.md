@@ -19,16 +19,16 @@ Features true OOP / Rich Domain Model architecture. ~2,000 LOC across 46 files w
 
 *Timing breakdown:* Active implementation ~3h 28m; automated defect-fix run ~2h 05m.
 
-The application is under [`Calculator/`](Calculator/), built with .NET 10 MAUI Blazor Hybrid and xUnit. See the [SciCalc project guide](Calculator/src/SciCalc/README.md) for its layout, verification commands, platform targets, behavior decisions, and MAUI workload caveat.
+The application is under [`Calculator/`](Calculator/), built with .NET 10 MAUI Blazor Hybrid and xUnit. See the [SciCalc project guide](Calculator/Presentation/SciCalc.Maui/README.md) for its layout, verification commands, platform targets, behavior decisions, and MAUI workload caveat.
 
-- [`Calculator/SciCalc.sln`](Calculator/SciCalc.sln) — `SciCalc.Domain` + `SciCalc.Tests` only. Workload-free: verification needs no MAUI workloads.
-- [`Calculator/SciCalc.App.sln`](Calculator/SciCalc.App.sln) — adds the MAUI SciCalc app project. Building it on a machine without the `maui` workloads fails with `NETSDK1147`.
+- [`Calculator/SciCalc.slnx`](Calculator/SciCalc.slnx) — `SciCalc.Domain` + `SciCalc.Domain.UnitTests` only. Workload-free: verification needs no MAUI workloads.
+- [`Calculator/SciCalc.App.slnx`](Calculator/SciCalc.App.slnx) — adds the MAUI `SciCalc.Maui` app project and its packaging-conformance tests. Building it on a machine without the `maui` workloads fails with `NETSDK1147`.
 
 ### URL Shortener API
 
 Clean Architecture, Domain/DataAccess/Presentation layers, Data Access with Entity Framework, test-first TDD, and full requirements traceability.
 
-The ASP.NET Core application and its xUnit tests are under [`UrlShortener/`](UrlShortener/). Open [`UrlShortener/UrlShortener.sln`](UrlShortener/UrlShortener.sln) to inspect or verify it.
+The ASP.NET Core application and its xUnit tests are under [`UrlShortener/`](UrlShortener/). Open [`UrlShortener/UrlShortener.slnx`](UrlShortener/UrlShortener.slnx) to inspect or verify it.
 
 ### Inspect the full proof chain
 

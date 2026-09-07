@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/Domain/">
+    <Project Path="Domain/SciCalc.Domain/SciCalc.Domain.csproj" />
+    <Project Path="Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/Presentation/">
+    <Project Path="Presentation/SciCalc.Maui/SciCalc.Maui.csproj" />
+    <Project Path="Presentation/SciCalc.Maui.UnitTests/SciCalc.Maui.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/Docs/">
+    <Folder Name="/Docs/_Current/">
+      <File Path="../../Docs/_Current/crc-cards.md" />
+      <File Path="../../Docs/_Current/framework-design-checklist-result.md" />
+      <File Path="../../Docs/_Current/issues.md" />
+      <File Path="../../Docs/_Current/prompt.md" />
+      <File Path="../../Docs/_Current/refactoring-plan.md" />
+    </Folder>
+  </Folder>
+</Solution>

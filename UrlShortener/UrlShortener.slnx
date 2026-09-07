@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Presentation/">
+    <Project Path="Presentation/UrlShortener.Api/UrlShortener.Api.csproj" />
+    <Project Path="Presentation/UrlShortener.Api.UnitTests/UrlShortener.Api.UnitTests.csproj" />
+    <Project Path="Presentation/UrlShortener.Api.IntegrationTests/UrlShortener.Api.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/Docs/">
+    <Folder Name="/Docs/_Current/">
+      <File Path="../../Docs/_Current/crc-cards.md" />
+      <File Path="../../Docs/_Current/framework-design-checklist-result.md" />
+      <File Path="../../Docs/_Current/prompt.md" />
+      <File Path="../../Docs/_Current/refactoring-plan.md" />
+    </Folder>
+  </Folder>
+</Solution>

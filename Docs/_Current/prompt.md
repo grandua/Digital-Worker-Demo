@@ -1,3 +1,44 @@
+﻿# User Prompt
+
+Delete global.json from repo root — it breaks dotnet test for UrlShortener VSTest projects: The repo-root global.json forces Microsoft.Testing.Platform on all projects. UrlShortener's test projects use VSTest (xUnit v2 + xunit.runner.visualstudio), so dotnet test. 2. UrlShortener integration tests fail on Windows — SQLite temp DB file locked during DisposeAsync: All 21 integration tests fail on Windows. TestServerFixture.DisposeAsync() at UrlShortener/Presentation/UrlShortener.Api.IntegrationTests/TestServerFixture.cs:29-30 calls File.Delete() on the SQLite temp .db file while SQLite still holds the handle. Wrap the delete calls in a try-catch — the temp files will be cleaned by the OS.
+
+# High-Level [****]: UrlShortener — global.json removal + Windows SQLite temp-file dispose fix
+
+## Findings
+- global.json does NOT exist in the working tree or HEAD; it was already deleted in commit ceeac9e on this branch (idempotent no-op). Its last content was {"test":{"runner":"Microsoft.Testing.Platform"}} — confirming the diagnosis. Zero remaining Microsoft.Testing.Platform references; test projects use xUnit 2.9.2 + xunit.runner.visualstudio 2.8.2 + Microsoft.NET.Test.Sdk 17.12.0 (classic VSTest).
+- TestServerFixture.DisposeAsync (TestServerFixture.cs:29-30) deleted SQLite temp files (db, -shm, -wal) unguarded; on Windows, SQLite (WAL mode) can hold handles after Factory.DisposeAsync(), so File.Delete throws IOException and fails all 21 integration tests.
+
+## [****]
+1. global.json: idempotently verify absence (git ls-files + filesystem check) — no action needed.
+2. TestServerFixture.cs: wrap the delete loop in try-catch — catch (IOException) with a brief rationale comment (Windows SQLite handle lock; temp files OS-cleaned) and catch (UnauthorizedAccessException) defense-in-depth (per [****] review). No other changes.
+3. Verify: dotnet build UrlShortener/UrlShortener.slnx (0 warnings/errors); dotnet test (40 unit + 21 integration passing on Linux). Windows-only failure mode verified by construction.
+
+## Verdict
+Simple enough for high-level [****] only — no [****] escalation (review verdict: APPROVE-WITH-CHANGES; recommendation to add UnauthorizedAccessException catch adopted). No new classes/methods/types — New Classes section is empty, [****] not required.
+
+## Assumptions
+- Temp files live in Path.GetTempPath(); leftovers are harmless (OS cleans temp).
+- The Windows lock cannot be reproduced on the Linux runner; verification is via construction + green Linux suite.
+
+## Decisions / trade-offs
+- Deliberate, documented exception swallow in test-fixture cleanup only (accepted exception to Fail-Fast with genuine recovery fallback).
+- Minimal diff; no new tests (no testable logic; mechanism-only assertions discouraged; existing 61 tests exercise DisposeAsync on every integration test run).
+
+## Scope
+- In scope: TestServerFixture.DisposeAsync cleanup hardening; global.json absence verification.
+- Out of scope: production code, retry loops for deletion, logging infrastructure in the fixture.
+
+## Acceptance criteria
+- dotnet test unblocked for VSTest projects (no Microsoft.Testing.Platform forcing).
+- DisposeAsync never throws on locked/unauthorized temp files; 61/61 tests green on Linux.
+
+## Test cases
+- No new tests (rationale above); regression coverage = existing 40 unit + 21 integration tests.
+
+---
+
+(Contents below are artifacts from a previous card/task — preserved as-is.)
+
 # User Prompt
 
 Fix 3 defects found by PR agent on the SciCalc MAUI Blazor Hybrid scientific calculator app located in the current working directory (a git worktree). The 3 defects:
@@ -7,45 +48,45 @@ Fix 3 defects found by PR agent on the SciCalc MAUI Blazor Hybrid scientific cal
 
 Fix focus areas: src/SciCalc/Platforms/Android/MainActivity.cs, src/SciCalc/MauiProgram.cs, src/SciCalc/Platforms/Windows/Package.appxmanifest, src/SciCalc/SciCalc.csproj. The user wants tests-first where possible (reproduce defects via failing tests — note these are platform bootstrap defects that may not be unit-testable on Linux without the MAUI workload; justify whatever test approach you choose; the workload-free test solution is SciCalc.sln with 230 passing tests).
 
-Produce a high-level plan following Rich Domain Model PEAA and the repo architecture, deciding whether the task is simple enough to implement with just this high-level plan or needs a full /plan-and-design workflow.
+Produce a high-level [****] following Rich Domain Model PEAA and the repo architecture, deciding whether the task is simple enough to implement with just this high-level [****] or needs a full [****] workflow.
 
-Constraints: Work only in the current working directory. Do NOT commit. Do NOT modify files unless the workflow explicitly requires creating plan artifacts.
+Constraints: Work only in the current working directory. Do NOT commit. Do NOT modify files unless the workflow explicitly requires creating [****] artifacts.
 
-# High-Level Plan: SciCalc — Fix 3 Platform Bootstrap / Packaging Defects (Android MainApplication, Windows App.xaml, Icon/Splash Resources)
+# High-Level [****]: SciCalc — Fix 3 Platform Bootstrap / Packaging Defects (Android MainApplication, Windows App.xaml, Icon/Splash Resources)
 
 ## REVIEW VERDICT: APPROVE WITH CHANGES
 
-**Reviewer:** plan-reviewer (via /review-high-level-plan workflow)
+**Reviewer:** [****] (via [****] workflow)
 **Date:** 2026-09-02
 **Verdict:** APPROVE-WITH-CHANGES (5 required amendments, 1 optional)
 
-The plan's overall structure, architecture analysis, test strategy, and implementation sequence are sound. However, the plan was written against a **stale sibling worktree** and contains several factual errors about the current state of files in THIS worktree (branch tip `a614baa`). These errors change the nature of some fixes. All amendments below MUST be applied before implementation begins.
+The [****]'s overall structure, architecture analysis, test strategy, and implementation sequence are sound. However, the [****] was written against a **stale sibling worktree** and contains several factual errors about the current state of files in THIS worktree (branch tip `a614baa`). These errors change the nature of some fixes. All amendments below MUST be applied before implementation begins.
 
 ### Required Amendments
 
 **[A1] Section 0 - Environment note is WRONG: rewrite entirely.**
-The SciCalc tree IS in this worktree. `SciCalc.sln`, `SciCalc.App.sln`, and `src/SciCalc/SciCalc.csproj` all exist at the repo root. The claim that "this worktree contains the UrlShortener project at commit 28bff5b" is false -- the branch tip is `a614baa`. The plan's instruction to "run in a tree that contains SciCalc" is satisfied here. Remove the stale-sibling-directory references. The executor works in the current working directory.
+The SciCalc tree IS in this worktree. `SciCalc.sln`, `SciCalc.App.sln`, and `src/SciCalc/SciCalc.csproj` all exist at the repo root. The claim that "this worktree contains the UrlShortener project at commit 28bff5b" is false -- the branch tip is `a614baa`. The [****]'s instruction to "run in a tree that contains SciCalc" is satisfied here. Remove the stale-sibling-directory references. The executor works in the current working directory.
 
 **[A2] Section 2 Defect 1 - Android MainApplication: NOT "verify-only"; it is a REAL fix (file is ABSENT).**
-The plan says `Platforms/Android/MainApplication.cs` "already exists and is correct". In THIS worktree, the directory contains ONLY `MainActivity.cs` and `AndroidManifest.xml`. `MainApplication.cs` does NOT exist. The required action must be changed from "Verify-only" to "Add the file" (use the template in section 3, which is correct).
+The [****] says `Platforms/Android/MainApplication.cs` "already exists and is correct". In THIS worktree, the directory contains ONLY `MainActivity.cs` and `AndroidManifest.xml`. `MainApplication.cs` does NOT exist. The required action must be changed from "Verify-only" to "Add the file" (use the template in section 3, which is correct).
 
 **[A3] Section 2 Defect 2 - Windows App.xaml.cs: both files are ABSENT, not just App.xaml.**
-The plan says `App.xaml.cs` "exists but is broken" with wrong base class `MauiWinApplication`. In THIS worktree, `Platforms/Windows/` contains ONLY `Package.appxmanifest` and `app.manifest`. Neither `App.xaml` nor `App.xaml.cs` exists. The action changes from "Add App.xaml; rewrite App.xaml.cs" to "Create BOTH App.xaml AND App.xaml.cs from scratch". The content contracts in section 3 remain correct. The negative test for the bogus `MauiWinApplication` string in section 4 is no longer applicable (there is no existing file to contain it), but is still harmless as a safety guard if kept.
+The [****] says `App.xaml.cs` "exists but is broken" with wrong base class `MauiWinApplication`. In THIS worktree, `Platforms/Windows/` contains ONLY `Package.appxmanifest` and `app.manifest`. Neither `App.xaml` nor `App.xaml.cs` exists. The action changes from "Add App.xaml; rewrite App.xaml.cs" to "Create BOTH App.xaml AND App.xaml.cs from scratch". The content contracts in section 3 remain correct. The negative test for the bogus `MauiWinApplication` string in section 4 is no longer applicable (there is no existing file to contain it), but is still harmless as a safety guard if kept.
 
 **[A4] Section 2 Defect 3 - Package.appxmanifest is NOT a "gutted stub"; it is a full standard manifest.**
-The plan says the manifest is a "gutted stub (`<Deployment ...></Deployment>` only)". In THIS worktree, `Package.appxmanifest` is a complete, well-formed manifest with `Package/Identity` (Name=com.scicalc.app, Publisher=CN=SciCalc, Version=1.0.0.0), `Properties` (Logo=appicon.png), `Dependencies`, `Resources`, `Applications/Application`, and `uap:VisualElements` with Square150x150Logo/Square44x44Logo/DefaultTile logos all set to `appicon.png` and SplashScreen Image=`splashscreen.png`. The referenced PNG files (`appicon.png`, `splashscreen.png`) are ABSENT from the repo, and `src/SciCalc/Resources/` does not exist, and `SciCalc.csproj` has no `MauiIcon`/`MauiSplashScreen` items.
-**Corrected action:** Do NOT "replace" the manifest wholesale. Instead: (a) add source SVG resources + `MauiIcon`/`MauiSplashScreen` csproj items (as the plan's section 3 correctly prescribes), and (b) update the manifest's logo/splash attribute values from literal `appicon.png`/`splashscreen.png` to `$placeholder$.png` so MAUI Resizetizer can substitute the generated asset paths. The rest of the manifest structure is retained. Section 3's manifest row and section 5 step 4 must be amended from "Replace stub with full template manifest" to "Update existing manifest asset references to $placeholder$.png".
+The [****] says the manifest is a "gutted stub (`<Deployment ...></Deployment>` only)". In THIS worktree, `Package.appxmanifest` is a complete, well-formed manifest with `Package/Identity` (Name=com.scicalc.app, Publisher=CN=SciCalc, Version=1.0.0.0), `Properties` (Logo=appicon.png), `Dependencies`, `Resources`, `Applications/Application`, and `uap:VisualElements` with Square150x150Logo/Square44x44Logo/DefaultTile logos all set to `appicon.png` and SplashScreen Image=`splashscreen.png`. The referenced PNG files (`appicon.png`, `splashscreen.png`) are ABSENT from the repo, and `src/SciCalc/Resources/` does not exist, and `SciCalc.csproj` has no `MauiIcon`/`MauiSplashScreen` items.
+**Corrected action:** Do NOT "replace" the manifest wholesale. Instead: (a) add source SVG resources + `MauiIcon`/`MauiSplashScreen` csproj items (as the [****]'s section 3 correctly prescribes), and (b) update the manifest's logo/splash attribute values from literal `appicon.png`/`splashscreen.png` to `$placeholder$.png` so MAUI Resizetizer can substitute the generated asset paths. The rest of the manifest structure is retained. Section 3's manifest row and section 5 step 4 must be amended from "Replace stub with full template manifest" to "Update existing manifest asset references to $placeholder$.png".
 
 **[A5] Section 2 - Remove the "incidental csproj hygiene issue" paragraph about duplicate Windows TFM.**
-The plan claims `net10.0-windows10.0.19041.0` appears in both the unconditional `TargetFrameworks` AND the conditioned append. In THIS worktree, the csproj has:
+The [****] claims `net10.0-windows10.0.19041.0` appears in both the unconditional `TargetFrameworks` AND the conditioned append. In THIS worktree, the csproj has:
 - Line 4: `<TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>` (NO windows TFM)
 - Line 5: `<TargetFrameworks Condition="...IsOSPlatform('windows')...">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>`
-There is no duplication. This "hygiene issue" does not exist. Remove the paragraph and all references to "optional TFM dedupe" throughout the plan (sections 3, 5, 7, 8).
+There is no duplication. This "hygiene issue" does not exist. Remove the paragraph and all references to "optional TFM dedupe" throughout the [****] (sections 3, 5, 7, 8).
 
 ### Optional Amendment
 
 **[A6] Section 0 - Architecture description mentions `SciCalc.Application` project; verify it exists.**
-The plan references a three-layer architecture: `SciCalc -> SciCalc.Application -> SciCalc.Domain`. In this worktree, `SciCalc.sln` contains only `SciCalc.Domain` and `SciCalc.Tests`; `SciCalc.App.sln` adds the MAUI project. There is no `SciCalc.Application` project visible. The csproj references only `SciCalc.Domain`. The executor should verify whether the Application layer exists or if the architecture is two-layer (SciCalc -> SciCalc.Domain). This does not affect the plan's fixes (which are all in the presentation/platform layer) but the architecture description should be accurate.
+The [****] references a three-layer architecture: `SciCalc -> SciCalc.Application -> SciCalc.Domain`. In this worktree, `SciCalc.sln` contains only `SciCalc.Domain` and `SciCalc.Tests`; `SciCalc.App.sln` adds the MAUI project. There is no `SciCalc.Application` project visible. The csproj references only `SciCalc.Domain`. The executor should verify whether the Application layer exists or if the architecture is two-layer (SciCalc -> SciCalc.Domain). This does not affect the [****]'s fixes (which are all in the presentation/platform layer) but the architecture description should be accurate.
 
 ### Items Confirmed Correct (no changes needed)
 
@@ -55,11 +96,11 @@ The plan references a three-layer architecture: `SciCalc -> SciCalc.Application 
 - **Section 4 (Test Strategy):** Sound. Static conformance tests are the right approach given no MAUI workload on Linux. File existence + XML parsing + content regex assertions are the strongest executable checks available. Test cases are well-specified.
 - **Section 4 test for "not the empty `<Deployment>` stub":** Still valid as a guard, even though the manifest is not currently a stub. Keep it.
 - **Section 5 (Implementation Sequence):** Correct order (tests-first, then fixes, then green). Amend step 4 per A4.
-- **Section 6 (Assessment - simple task):** Agreed. No `/plan-and-design` escalation needed.
+- **Section 6 (Assessment - simple task):** Agreed. No `[****]` escalation needed.
 - **Section 7 (Option (a) chosen):** Correct. MAUI Resizetizer + `$placeholder$` is the idiomatic approach.
 - **Section 8 (Scope):** Correct after removing TFM dedupe references.
 - **Section 9 (Acceptance Criteria):** Correct. Red-green demonstration, full test gate, no domain modifications.
-- **Anti-Procedural Checklist (per /system-architect):** PASSES. No domain logic introduced in platform classes. No external dependencies in domain layer. No calculations in presentation layer. `MainApplication` and `App` are thin bootstrap delegates -- anemic by design and correctly so for MAUI platform adapters.
+- **Anti-Procedural Checklist (per /[****]):** PASSES. No domain logic introduced in platform classes. No external dependencies in domain layer. No calculations in presentation layer. `MainApplication` and `App` are thin bootstrap delegates -- anemic by design and correctly so for MAUI platform adapters.
 
 ---
 
@@ -70,7 +111,7 @@ The plan references a three-layer architecture: `SciCalc -> SciCalc.Application 
 
 ## 1. Architecture / RDM-PEAA Alignment
 
-Repo architecture (from `Docs/_Current/plan.md` in the SciCalc tree): one-way dependency `SciCalc (MAUI Blazor Hybrid presentation) -> SciCalc.Application (thin facade/DTOs) -> SciCalc.Domain (all logic: Lexer, ExpressionParser, AST nodes, Calculator aggregate root, MemoryBank, HistoryLog)`. Domain has zero external dependencies; xUnit tests target only Domain/Application.
+Repo architecture (from `Docs/_Current/[****].md` in the SciCalc tree): one-way dependency `SciCalc (MAUI Blazor Hybrid presentation) -> SciCalc.Application (thin facade/DTOs) -> SciCalc.Domain (all logic: Lexer, ExpressionParser, AST nodes, Calculator aggregate root, MemoryBank, HistoryLog)`. Domain has zero external dependencies; xUnit tests target only Domain/Application.
 
 **RDM impact: none.** All three defects live in the MAUI head's *platform adapter* layer (`Platforms/*`) and in packaging metadata (csproj resource items, appxmanifest). No domain entity, value object, or application service changes. The new classes (`MainApplication`, Windows `App`) are framework-mandated bootstrap shells — anemic by design and correctly so: they are PEAA "presentation/platform glue", not domain objects, and their only behavior is delegating to `MauiProgram.CreateMauiApp()`. The rich domain model (`Calculator` aggregate, expression AST, `CalculatorAppService` facade) is untouched, and the existing 230-test suite remains the domain regression gate.
 
@@ -123,7 +164,7 @@ Regression gate (unchanged): `dotnet test SciCalc.sln` → the existing 230 Doma
 
 ## 5. Implementation Sequence
 
-1. Scaffold `tests/SciCalc.Packaging.Tests` (xUnit, net10.0, Microsoft.NET.Test.Sdk 17.14.1 / xunit 2.9.3 / runner 3.1.0 — match existing test projects), add to `SciCalc.sln` with Build.0 entries; write §4 tests → **run → red** (defects reproduced).
+1. [****] `tests/SciCalc.Packaging.Tests` (xUnit, net10.0, Microsoft.NET.Test.Sdk 17.14.1 / xunit 2.9.3 / runner 3.1.0 — match existing test projects), add to `SciCalc.sln` with Build.0 entries; write §4 tests → **run → red** (defects reproduced).
 2. Defect 1: add Android `MainApplication.cs` (§3 contract).
 3. Defect 2: add both `App.xaml` and `App.xaml.cs` (partial, `MauiWinUIApplication`).
 4. Defect 3: add `Resources/AppIcon/appicon.svg` + `Resources/Splash/splash.svg`; add `MauiIcon`/`MauiSplashScreen` to csproj; update manifest asset references from literal PNGs to `$placeholder$.png`.
@@ -132,7 +173,7 @@ Regression gate (unchanged): `dotnet test SciCalc.sln` → the existing 230 Doma
 
 ## 6. Assessment
 
-**Simple enough to implement from this high-level plan — a full `/plan-and-design` workflow is NOT required.** The fixes are template-determined (MAUI conventions leave no design latitude), touch only platform glue + packaging metadata, involve zero domain-model or API design decisions, and the only option choice (asset strategy) is resolved in favor of the idiomatic MAUI source-resource approach (option a). Risks are environmental (no MAUI workload here), not architectural.
+**Simple enough to implement from this high-level [****] — a full `[****]` workflow is NOT required.** The fixes are template-determined (MAUI conventions leave no design latitude), touch only platform glue + packaging metadata, involve zero domain-model or API design decisions, and the only option choice (asset strategy) is resolved in favor of the idiomatic MAUI source-resource approach (option a). Risks are environmental (no MAUI workload here), not architectural.
 
 ## 7. Assumptions / Decisions / Trade-offs
 
@@ -163,15 +204,15 @@ Regression gate (unchanged): `dotnet test SciCalc.sln` → the existing 230 Doma
 
 # User Prompt
 
-Fix 2 defects found by PR agent on SciCalc (.NET MAUI Blazor Hybrid scientific calculator): (1) `MainPage.razor` illegally doubles as a MAUI `ContentPage` and a Blazor component; (2) root-level `dotnet test` against `SciCalc.sln` hits `NETSDK1147` because the MAUI project is in the solution, contradicting the documented workload-free verification workflow. Assess, agree/disagree, plan the fix.
+Fix 2 defects found by PR agent on SciCalc (.NET MAUI Blazor Hybrid scientific calculator): (1) `MainPage.razor` illegally doubles as a MAUI `ContentPage` and a Blazor component; (2) root-level `dotnet test` against `SciCalc.sln` hits `NETSDK1147` because the MAUI project is in the solution, contradicting the documented workload-free verification workflow. Assess, agree/disagree, [****] the fix.
 
-# High-Level Plan: SciCalc PR Defects D1 (MainPage page/component split) & D2 (workload-free verification solution)
+# High-Level [****]: SciCalc PR Defects D1 (MainPage page/component split) & D2 (workload-free verification solution)
 
 ## 0. Defect Assessment
 
 Both defects are **agreed with — verified against the source tree** (branch tip `6c19549` on `origin/feature-card-6a95cde63dd6d80a97e9b10b-20260901001521336`; this worktree checked a stale tree — the code must be restored to this branch before implementation).
 
-- **D1 confirmed.** `src/SciCalc/MainPage.razor` declares `@inherits ContentPage` while containing a `<BlazorWebView>` markup block. Blazor Razor components may only inherit from `IComponent`-compatible bases (default `ComponentBase`); `Microsoft.Maui.Controls.ContentPage` is not one, and the generated `BuildRenderTree` override has no valid base. Simultaneously, `App.cs` (`public App() => MainPage = new MainPage()`) requires `MainPage` to be a MAUI `Page`. The file claims both incompatible roles; on real MAUI TFMs the build/runtime contract cannot hold. Fix as the PR agent prescribed: a conventional MAUI `MainPage` (XAML + code-behind) hosting the `BlazorWebView`, with `Components/CalculatorPage.razor` as the sole Blazor root component.
+- **D1 confirmed.** `src/SciCalc/MainPage.razor` declares `@inherits ContentPage` while containing a `<BlazorWebView>` markup block. Blazor Razor components may only inherit from `IComponent`-compatible bases ([****] `ComponentBase`); `Microsoft.Maui.Controls.ContentPage` is not one, and the generated `BuildRenderTree` override has no valid base. Simultaneously, `App.cs` (`public App() => MainPage = new MainPage()`) requires `MainPage` to be a MAUI `Page`. The file claims both incompatible roles; on real MAUI TFMs the build/runtime contract cannot hold. Fix as the PR agent prescribed: a conventional MAUI `MainPage` (XAML + code-behind) hosting the `BlazorWebView`, with `Components/CalculatorPage.razor` as the sole Blazor root component.
 - **D2 confirmed.** `SciCalc.sln` references `src/SciCalc/SciCalc.csproj` (MAUI). `dotnet test` against the solution builds every project, so on workload-free machines it fails with `NETSDK1147`, while `README.md` advertises root-level `dotnet test` as the quick verification path. The documentation and solution membership contradict each other.
 
 `SciCalc.Tests` references only `SciCalc.Domain` — the two-project verification set is already clean; only the solution/document wiring is wrong.
@@ -223,7 +264,7 @@ The README-described scratch Razor harness (plain `net10.0` SDK, `FrameworkRefer
 
 ## 6. Assessment
 
-**Simple enough for this high-level plan; `/plan-and-design` escalation not required.** The fixes are small, well-understood, and mechanical (one page split, one solution reorganization, docs updates); no cross-aggregate design work is involved.
+**Simple enough for this high-level [****]; `[****]` escalation not required.** The fixes are small, well-understood, and mechanical (one page split, one solution reorganization, docs updates); no cross-aggregate design work is involved.
 
 ## 7. Assumptions, Decisions, Trade-offs
 

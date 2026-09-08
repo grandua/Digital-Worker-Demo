@@ -1,7 +1,7 @@
-# SciCalc Refactoring Plan
+﻿# SciCalc Refactoring [****]
 
 > Audit mode only — no behavior/code changes applied in this pass beyond existing `//TODO` markers.
-> Workflow: `/find-smells-and-plan-refactoring`  
+> Workflow: `[****]-and-plan-refactoring`  
 > Sessions: prior `88809b08542048caab1bd58682e8d56b`; re-audit `7923ea4ed5774f18b12f3bb26924e0e0` (2026-09-01)
 > Scope: **unstaged diff + untracked only** (Domain, Presentation, tests, Docs). Sources: live code + `Docs/_Current/issues.md` (incl. Current unstaged-change audit) + `framework-design-checklist-result.md`.
 
@@ -57,7 +57,7 @@ Do **not** mix correctness fixes with renames, property shape changes, or presen
 
 ### HIGH — 5 (was 8; A1–A3 closed)
 
-| # | File:line | Smell | Plan |
+| # | File:line | Smell | [****] |
 |---|-----------|-------|------|
 | H4 | `BinaryNode.cs:25-26` | Non-constant static member `CheckedZero` | **B3** — instance / local |
 | H5 | `Calculator.cs:61` / `InputBuffer.cs:51` | Mutable list behind `IReadOnlyList` | **B2** — snapshot / `AsReadOnly()` |
@@ -69,7 +69,7 @@ Do **not** mix correctness fixes with renames, property shape changes, or presen
 
 ### MEDIUM — 17 (was 18; −EvaluationContext −session caches; +N-M1 +N-M2; B1/B5 resolved)
 
-| # | File:line | Smell | Plan |
+| # | File:line | Smell | [****] |
 |---|-----------|-------|------|
 | M3 | `InputBuffer` glyph dicts + `CalculatorPage` labels | Presentation in Domain + duplicate | **B4** |
 | M4 | `MathExpression.Evaluate` | Borderline >10 lines | **B6a** extract try-parse |
@@ -93,7 +93,7 @@ Do **not** mix correctness fixes with renames, property shape changes, or presen
 
 ### LOW — 16 (was 14; +N-L1 +N-L2)
 
-| # | File:line | Smell | Plan |
+| # | File:line | Smell | [****] |
 |---|-----------|-------|------|
 | L1 | Underscore fields Domain + Razor | Naming | **B7a** bare camelCase |
 | L2 | `KeyDef` / `MemSlot` | Abbreviations | **B7b** KeyDefinition / MemorySlot |
@@ -126,7 +126,7 @@ Do **not** mix correctness fixes with renames, property shape changes, or presen
 |--------------------------------------|--|
 | A1/H1, A2/H3, A3/H2, B1/old-M2, B5/old-M1 EvaluationContext | 5 |
 
-Gate baseline: **223/223** tests (was 205 in prior plan).
+Gate baseline: **223/223** tests (was 205 in prior [****]).
 
 ---
 
@@ -177,7 +177,7 @@ Gate baseline: **223/223** tests (was 205 in prior plan).
 
 ### B9. CSS/markup alignment (NEW N-M1 + N-L2)
 - Either update Razor class attributes to new CSS names **or** restore CSS selectors to match markup.
-- Remove `.mode-rad` duplicate declarations (keep base as RAD default).
+- Remove `.mode-rad` duplicate declarations (keep base as RAD [****]).
 - Prefer one commit; no Domain change.
 - **Gate** (manual UI check / Razor harness if available).
 
@@ -213,7 +213,7 @@ dotnet test tests/SciCalc.Tests/SciCalc.Tests.csproj
 
 ## Traceability
 
-| issues.md / prior item | Plan ID | Status |
+| issues.md / prior item | [****] ID | Status |
 |------------------------|---------|--------|
 | Literal OverflowException | A1 / H1 | **FIXED** |
 | DEL numeric state | A2 / H3 | **FIXED** |
@@ -288,9 +288,9 @@ dotnet test tests/SciCalc.Tests/SciCalc.Tests.csproj
 
 ---
 
-## MCP refactor tool mapping
+## MCP [****] tool mapping
 
-| Plan ID | Preferred tool |
+| [****] ID | Preferred tool |
 |---------|----------------|
 | B1b | hand / introduce property |
 | B2a | hand snapshot |
@@ -346,12 +346,12 @@ Do **not** use extract-interface / create-adapter for Domain.
 ### Naming (framework checklist)
 - F-04 EvaluationContext **done**; F-01 underscore, F-02 KeyDef/MemSlot, F-03/F-05 OperatorKind/InputKey **open** → B7.
 
-*End of refactoring plan (session 7923ea4ed5774f18b12f3bb26924e0e0).*
+*End of refactoring [****] ([****]).*
 
 ---
 
 ## Phase C execution record (post-fix verification pass)
-- Follow-up found by refactor loop verification: CalculatorPage.razor.css selectors had drifted from the renamed markup (fix-issues glyph move). FIXED in place: .display-expression→.entry, .display-result→.result, .error-text→.error-title, .display-error-reason→.error-reason, .memory-row→.memory, .fn-grid→.pad.sci, .main-grid→.pad.main, .key.fn→.key.sci, .key.ac→.key.danger, .key.del→.key.warn, .key.eq→.key.equals; added .mem-badge.on state; removed dead selectors (.key.op/.key.const/.mem-head/.mem-name/.mem-buttons/.span-all/.display.error/mode variants) and both CSS TODOs; README path + sln entries corrected. All 3 fixable TODO(review) items closed.
+- Follow-up found by [****] loop verification: CalculatorPage.razor.css selectors had drifted from the renamed markup ([****] glyph move). FIXED in place: .display-expression→.entry, .display-result→.result, .error-text→.error-title, .display-error-reason→.error-reason, .memory-row→.memory, .fn-grid→.pad.sci, .main-grid→.pad.main, .key.fn→.key.sci, .key.ac→.key.danger, .key.del→.key.warn, .key.eq→.key.equals; added .mem-badge.on state; removed dead selectors (.key.op/.key.const/.mem-head/.mem-name/.mem-buttons/.span-all/.display.error/mode variants) and both CSS TODOs; README path + sln entries corrected. All 3 fixable TODO(review) items closed.
 - Remaining follow-up (environment-limited, documented): CalculatorPage.razor component coverage — requires MAUI workloads/bUnit harness; tracked as the single open TODO(review).
 - Next phase (post-delivery backlog): none required for MVP; optional L8 test-DSL consolidation and H8 AssertClose×3 merge remain as low-priority notes in issues.md.
 - Gates re-run after fixes: dotnet build 0 warnings/0 errors; MTP suite 225/225 passed.
@@ -362,7 +362,7 @@ Do **not** use extract-interface / create-adapter for Domain.
 - Session correctness fix: memory store now uses the current pull-based preview when a valid buffer expression exists, instead of preferring a stale history answer; focused regression coverage added.
 - Structural and optional refactoring backlog remains out of scope for this iteration.
 =======
-# URL Shortener Refactoring Plan — CURRENT STATE
+# URL Shortener Refactoring [****] — CURRENT STATE
 
 **Mode:** AUDIT ONLY — findings + `//TODO` markers only; no behavior/architecture/implementation fixes.  
 **Scope:** UrlShortener + UrlShortener.Tests (unstaged feature files listed in audit prompt).  
@@ -388,7 +388,7 @@ Smell thresholds: method body ideally ≤10 `;`-statements; params ≤3 (ctors e
 | M1/M7/M15/R10 | Compressed JS + unsafe DOM | **FIXED** — extracted helpers; `textContent` / `replaceChildren`; named 201/429 |
 | M-POST1 / R12 | Duplicate `"create-link"` string | **FIXED** — `LinkEndpoints.CreateLinkPolicy` single source |
 | L-POST1 / R13 | Tests re-set connection string | **FIXED** — `RateLimitTests` only overrides rate settings; concurrency uses base |
-| R1–R10, R11–R12 | Prior refactor phase | **DONE** (see Completed section) |
+| R1–R10, R11–R12 | Prior [****] phase | **DONE** (see Completed section) |
 
 Also remediated (correctness, not pure smells): atomic transactional create; `ExecuteUpdateAsync` click increments; forwarded headers; no static semaphore.
 
@@ -408,7 +408,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ## MEDIUM (all fixed)
 
-| ID | Location | Smell | Snippet / note | Planned refactor |
+| ID | Location | Smell | Snippet / note | Planned [****] |
 |----|----------|-------|----------------|------------------|
 | M-CUR1 | `Program.cs:36` | Message chain (3+ dots) | `scope.ServiceProvider.GetRequiredService<ShortenerDbContext>().Database.EnsureCreatedAsync()` | Optional further extract on `IServiceProvider`/`WebApplication` helper that hides the chain (already inside `EnsureDatabaseCreated`) |
 | M-CUR2 | `Data/ShortenerDbContext.cs:12` | Magic number | `HasMaxLength(2048)` | `Introduce Constant` e.g. `ShortLink.OriginalUrlMaxLength` or data-layer named const (behavior-preserving only) |
@@ -419,7 +419,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 
 ## LOW (L-CUR1 fixed; L-CUR2–4 document-only)
 
-| ID | Location | Smell | Snippet / note | Planned refactor |
+| ID | Location | Smell | Snippet / note | Planned [****] |
 |----|----------|-------|----------------|------------------|
 | L-CUR1 | `Api/LinkEndpoints.cs:23` | Mild Tell-Don't-Ask | `Results.Created($"/api/links/{link.Code}", link.ToLinkResponse(...))` asks `Code` while mapping already exposes it | Build Location from mapped `LinkResponse.Code` / `ShortUrl` only |
 | L-CUR2 | `Domain/ShortCode.cs:12-14`, `Data/ShortenerDbContext.cs:12-13`, dense test one-liners | Intent / compression | Multi-statement physical lines | Expand only when next touched; not Long Method by `;` count |
@@ -470,7 +470,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 ## Decisions and trade-offs
 
 1. **AUDIT only** — `//TODO` markers allowed at open smell sites; no logic/tests/architecture edits.  
-2. Prior plan body described pre-refactor state; this file is the **current** source of truth (rewrote rather than incremental patch of stale C1–M15 tables).  
+2. Prior [****] body described pre-refactor state; this file is the **current** source of truth (rewrote rather than incremental patch of stale C1–M15 tables).  
 3. XP: tests green (59/59); intent mostly clear after R5–R10; no product duplication; class count already minimal.  
 4. Residual MEDIUM items are polish, not blockers.  
 5. `LinkRegistry` two-save transaction is intentional EF identity allocation — not a CRITICAL smell.  
@@ -478,11 +478,11 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 7. **Did not re-flag** Presentation `LinkRegistry` orchestration as CRITICAL — matches stated architecture (Presentation includes LinkRegistry).  
 8. **C-POST1** kept rejected (Domain clean; mapper in Api).  
 9. **Skipped** second `framework-design-checklist` naming-types run after in-pass class-name verify (no naming defects).  
-10. **issues.md** updated in lockstep so stale R11–R13 open rows do not fight this plan.
+10. **issues.md** updated in lockstep so stale R11–R13 open rows do not fight this [****].
 
 ---
 
-## Completed refactor notes (historical)
+## Completed [****] notes (historical)
 
 - R1: `LinkRegistry` + thin `LinkEndpoints`  
 - R2: removed `CreateGate`  
@@ -506,13 +506,13 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 - Intent clear in Domain; minor compression residual (L-CUR2).  
 - No duplicate product code.  
 - Fewest classes needed for stated architecture.
-- R14-R18: DONE (final polish pass) — named constants MaxUrlLength (ShortenerDbContext) and CodeRoute (LinkEndpoints), EnsureCreated chain flattened in Program.cs, CreateLink builds Location from mapped LinkResponse, WindowExpiryBufferMs test constant. All //TODO markers removed (0 remaining). Verified: dotnet test 59/59 passed. Refactoring plan fully executed.
+- R14-R18: DONE (final polish pass) — named constants MaxUrlLength (ShortenerDbContext) and CodeRoute (LinkEndpoints), EnsureCreated chain flattened in Program.cs, CreateLink builds Location from mapped LinkResponse, WindowExpiryBufferMs test constant. All //TODO markers removed (0 remaining). Verified: dotnet test 59/59 passed. Refactoring [****] fully executed.
 
 ---
 
-## Packaging PR-agent defect fixes — smells audit (session 301f51ad4f2645988288b489bfe1fc39)
+## Packaging PR-agent defect fixes — smells audit ([****])
 
-**Workflow:** `/find-smells-and-plan-refactoring`  
+**Workflow:** `[****]-and-plan-refactoring`  
 **Mode:** AUDIT ONLY — no code/TODOs/behavior changes applied.  
 **Scope:** unstaged vs HEAD `a614baa` — SciCalc.Packaging.Tests + platform bootstrap shells + MauiIcon/Splash resources + Package.appxmanifest `$placeholder$.png` + sln registration.  
 **Gate context:** `dotnet test SciCalc.sln` 248/248; MAUI head not buildable on Linux (no workload).  
@@ -528,7 +528,7 @@ _None._ No method >20 statements; no param lists >3; no static mutable state; no
 | LOW (new) | 0 | No new LOW items |
 | **Total new open** | **0** | |
 
-### Document-only note (not a new plan ID)
+### Document-only note (not a new [****] ID)
 
 | Note | Sev | Location | Disposition |
 |------|-----|----------|-------------|
@@ -553,3 +553,71 @@ _None new._ No behavior-preserving structural steps required for packaging delta
 - Fewest classes for the mandate (shells + test helpers).
 
 *End packaging smells audit — session `301f51ad4f2645988288b489bfe1fc39`.*
+
+---
+
+## TestServerFixture DisposeAsync Windows SQLite handle fix — smells audit
+
+**Workflow:** `[****]-and-plan-refactoring` (under `[****]` > `/[****]`)  
+**Session:** `d9d047282b0e4f53a5f230b019ade6b6`  
+**Mode:** AUDIT ONLY — no code/`//TODO`/behavior/architecture changes.  
+**Scope:** unstaged diff only — `UrlShortener/Presentation/UrlShortener.Api.IntegrationTests/TestServerFixture.cs`  
+**Change:** `DisposeAsync` wraps existing SQLite temp `File.Delete` loop in `try` / `catch (IOException)` (why-comment) / `catch (UnauthorizedAccessException)` (defense-in-depth).  
+**Gate context:** build 0/0; unit 40/40 + integration 21/21 on Linux.
+
+### DisposeAsync line-count (honest)
+
+| Metric | Value | Threshold impact |
+|--------|------:|------------------|
+| Physical lines (signature through closing `}`, L25–L42) | **18** | MEDIUM band (11–20); not HIGH (>20) |
+| Pre-change physical lines | ~7 | under 10 |
+| Workflow 1.d `;`-statement count (excl. blanks/comments) | **~3** | under >10 `;` Long Method rule |
+| IAsyncLifetime | framework contract | method name/signature fixed; body may Extract Method |
+
+### Smell inventory (introduced by this change only)
+
+| Severity | Count | Notes |
+|----------|------:|-------|
+| CRITICAL | 0 | Test fixture only; no Domain/layer/circular issues |
+| HIGH | 0 | Not >20 lines; no LPL; no static state; no Feature Envy; no dups >2 |
+| MEDIUM | 1 | **M-FIX1** physical Long Method (18 lines) |
+| LOW | 1 | **L-FIX1** empty `UnauthorizedAccessException` catch lacks why-comment |
+| **Total new open** | **2** | optional polish only |
+
+| ID | Sev | Location | Smell | Snippet / note | Planned [****] |
+|----|-----|----------|-------|----------------|------------------|
+| **M-FIX1** | MEDIUM | `TestServerFixture.cs:25-42` | Long Method (physical 18; `;` count ~3) | try/catch around delete loop grew method past 10 physical lines | **Extract Method** `TryDeleteTempDbFiles()` (or similar) private instance helper; keep `DisposeAsync` as Client.Dispose → Factory.DisposeAsync → helper. Optional; not commit-blocking. |
+| **L-FIX1** | LOW | `TestServerFixture.cs:39-41` | Comment clarity | empty `catch (UnauthorizedAccessException) { }` while IOException has why-comment | Add one-line why (same Windows lock / defense-in-depth) **or** leave if intentional minimalism |
+
+### Explicit non-findings
+
+- No new types/methods/fields beyond body edit.
+- No static members added.
+- No message chains (3+ dots).
+- No Feature Envy / Tell-Don't-Ask beyond normal BCL `File` cleanup.
+- No duplicate delete/try patterns elsewhere in repo (unique occurrence).
+- IOException comment is a valid **why** comment (Windows SQLite handle) — not a Comments smell requiring extract by itself.
+- LPL N/A (0 params; IAsyncLifetime).
+- Swallowing IOException/UnauthorizedAccessException is intentional best-effort temp cleanup after dispose — correctness concern already accepted for Windows flake fix; not a smell ID.
+
+### Named refactoring steps (optional; behavior-preserving)
+
+| Step | Refactoring | Target | Addresses | MCP tool |
+|------|-------------|--------|-----------|----------|
+| F1 | **Extract Method** | try/catch + foreach delete → private `TryDeleteTempDbFiles()` | M-FIX1 (+ incidental CC drop) | `extract-method` |
+| F2 | **Comment** (why) | UnauthorizedAccessException catch | L-FIX1 | hand edit (no mcp-router tool) |
+
+**Rejected:** new utility class for one helper; retry loops; changing product SQLite lifetime; //TODO in production/test code this pass.
+
+### XP simplicity (this delta)
+
+- Runs all tests (40+21).
+- Intent clear (Windows handle lock why-comment).
+- No product duplicate code.
+- Fewest members (no new types).
+
+### Verdict
+
+**No smells requiring mandatory refactoring before commit.** M-FIX1/L-FIX1 are optional convenience/polish. Change is acceptable as-is for the Windows SQLite temp-file dispose fix.
+
+*End TestServerFixture DisposeAsync smells audit — session `d9d047282b0e4f53a5f230b019ade6b6`.*

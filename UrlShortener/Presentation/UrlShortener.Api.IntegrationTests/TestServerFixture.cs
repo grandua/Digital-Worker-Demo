@@ -26,7 +26,18 @@ public abstract class TestServerFixture : IAsyncLifetime
     {
         Client.Dispose();
         await Factory.DisposeAsync();
-        foreach (var file in new[] { DatabasePath, DatabasePath + "-shm", DatabasePath + "-wal" })
-            if (File.Exists(file)) File.Delete(file);
+        try
+        {
+            foreach (var file in new[] { DatabasePath, DatabasePath + "-shm", DatabasePath + "-wal" })
+                if (File.Exists(file)) File.Delete(file);
+        }
+        catch (IOException)
+        {
+            // On Windows, SQLite may still hold a handle to the temp DB files after Factory disposal.
+            // The temp files will be cleaned by the OS.
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }

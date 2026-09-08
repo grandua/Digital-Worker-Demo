@@ -1,5 +1,54 @@
 ﻿# User Prompt
 
+Fix SciCalc.Maui Windows build: add Microsoft.Extensions.Logging.Debug package reference and condition mobile TFMs on desktop builds. Context: Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj is a MAUI project (Sdk Microsoft.NET.Sdk.Razor) with TargetFrameworks net10.0-android;net10.0-ios;net10.0-maccatalyst and a conditional addition of net10.0-windows10.0.19041.0 on Windows. Calculator/Presentation/SciCalc.Maui/MauiProgram.cs line 22 calls builder.Logging.AddDebug(), which requires the Microsoft.Extensions.Logging.Debug NuGet package (not currently referenced). The repo uses Central Package Management: Calculator/Directory.Packages.props (ManagePackageVersionsCentrally=true). A unit test project Calculator/Presentation/SciCalc.Maui.UnitTests targets plain net10.0.
+
+# High-Level [****]: SciCalc.Maui — Windows build fix (Logging.Debug package + TFM conditioning)
+
+## Findings (verified in this worktree)
+- `Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj` line 4: `<TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>`; line 5 conditionally appends `net10.0-windows10.0.19041.0` on Windows (`$([MSBuild]::IsOSPlatform('windows'))`). PackageReferences: `Microsoft.AspNetCore.Components.WebView.Maui`, `Microsoft.Maui.Controls` (versionless, CPM).
+- `MauiProgram.cs` line 22 calls `builder.Logging.AddDebug()` → fails to compile without the `Microsoft.Extensions.Logging.Debug` package.
+- `Calculator/Directory.Packages.props`: `ManagePackageVersionsCentrally=true`; existing versions 10.0.100 for the MAUI packages. New `PackageVersion` entries must be added there (CPM forbids versions on `PackageReference`).
+- On a Windows machine driven by the `dotnet` CLI (no VS full MSBuild, no Android/iOS SDKs guaranteed), unconditionally targeting mobile TFMs breaks restore/build; restricting to the Windows TFM under CLI is the standard MAUI template pattern.
+
+## [****]
+1. `Calculator/Directory.Packages.props` — add to the existing `ItemGroup`:
+   `<PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />` (aligns with the .NET 10 / MAUI 10.0.100 wave).
+2. `Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj`:
+   a. Add `<PackageReference Include="Microsoft.Extensions.Logging.Debug" />` (versionless; CPM supplies 10.0.0) to the existing package `ItemGroup`.
+   b. Replace the two `TargetFrameworks` lines with CLI-aware conditioning (order matters — last one wins):
+      - `<TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>`
+      - `<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>`
+      - `<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows')) and '$(MSBuildRuntimeType)' != 'Full'">net10.0-windows10.0.19041.0</TargetFrameworks>`
+      Effect: Visual Studio (full MSBuild, `MSBuildRuntimeType == 'Full'`) keeps all four TFMs; Windows `dotnet` CLI builds only `net10.0-windows10.0.19041.0` (no mobile SDKs required); non-Windows hosts keep mobile TFMs.
+3. Verification: on Windows CLI, `dotnet build Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj -f net10.0-windows10.0.19041.0` succeeds and `AddDebug()` compiles; `dotnet test` on SciCalc.Maui.UnitTests (net10.0, unaffected) stays green. No MAUI workload on this Linux box — Windows build verification is deferred to a Windows dev/CI machine.
+
+## Verdict
+Simple config-only change (2 files, ~4 XML lines). No new classes, methods, domain logic, or API design — Rich Domain Model / PEAA impact: none. This task does NOT need the full [****] workflow; this high-level [****] is sufficient to implement.
+
+## Assumptions
+- `Microsoft.Extensions.Logging.Debug` 10.0.0 exists on NuGet and matches the .NET 10 runtime shipped with MAUI 10.0.100.
+- SciCalc.Maui.UnitTests (plain net10.0) does not reference the MAUI project in a way that forces mobile-TFM restore.
+
+## Decisions / trade-offs
+- Version pinned centrally (10.0.0) rather than floating — deterministic restore, consistent with repo CPM.
+- `MSBuildRuntimeType` condition chosen over per-developer `Directory.Build.props` overrides so Visual Studio retains full multi-target behavior while Windows CLI stays buildable.
+
+## Scope
+- In scope: `Calculator/Directory.Packages.props`, `Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj` (2 files).
+- Out of scope: `MauiProgram.cs` logic, the UnitTests project, CI pipeline changes, Android/iOS/MacCatalyst verification.
+
+## Acceptance criteria
+- Windows `dotnet build` of SciCalc.Maui succeeds for `net10.0-windows10.0.19041.0` with `AddDebug()` compiling.
+- Visual Studio on Windows still targets all four TFMs.
+- CPM integrity preserved (single central `PackageVersion`, versionless `PackageReference`).
+
+## Test cases
+- No new tests (config-only change; mechanism-only assertions discouraged). Regression gate: existing SciCalc.Maui.UnitTests (net10.0) remain green.
+
+---
+
+# User Prompt
+
 Delete global.json from repo root — it breaks dotnet test for UrlShortener VSTest projects: The repo-root global.json forces Microsoft.Testing.Platform on all projects. UrlShortener's test projects use VSTest (xUnit v2 + xunit.runner.visualstudio), so dotnet test. 2. UrlShortener integration tests fail on Windows — SQLite temp DB file locked during DisposeAsync: All 21 integration tests fail on Windows. TestServerFixture.DisposeAsync() at UrlShortener/Presentation/UrlShortener.Api.IntegrationTests/TestServerFixture.cs:29-30 calls File.Delete() on the SQLite temp .db file while SQLite still holds the handle. Wrap the delete calls in a try-catch — the temp files will be cleaned by the OS.
 
 # High-Level [****]: UrlShortener — global.json removal + Windows SQLite temp-file dispose fix

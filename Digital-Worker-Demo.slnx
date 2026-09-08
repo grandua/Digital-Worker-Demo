@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/Calculator/Domain/">
+    <Project Path="Calculator/Domain/SciCalc.Domain/SciCalc.Domain.csproj" />
+    <Project Path="Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/Calculator/Presentation/">
+    <Project Path="Calculator/Presentation/SciCalc.Maui.UnitTests/SciCalc.Maui.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/UrlShortener/Presentation/">
+    <Project Path="UrlShortener/Presentation/UrlShortener.Api/UrlShortener.Api.csproj" />
+    <Project Path="UrlShortener/Presentation/UrlShortener.Api.UnitTests/UrlShortener.Api.UnitTests.csproj" />
+    <Project Path="UrlShortener/Presentation/UrlShortener.Api.IntegrationTests/UrlShortener.Api.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

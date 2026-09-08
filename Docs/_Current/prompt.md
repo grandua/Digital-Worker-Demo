@@ -1,5 +1,53 @@
 ﻿# User Prompt
 
+Create a root Digital-Worker-Demo.slnx solution file at the repo root that aggregates the existing Calculator and UrlShortener solutions/projects. The repo root contains Calculator/ and UrlShortener/ directories, each with its own .NET solutions/projects. The root solution must build successfully with `dotnet build Digital-Worker-Demo.slnx`. This is a simple config-level task: create one .slnx file referencing existing projects. Produce a high-level [****] per Rich Domain Model PEAA guidance where applicable (this task is config-only, so minimal planning is expected), then execute the workflow until completion.
+
+# High-Level [****]: Root `Digital-Worker-Demo.slnx` Aggregate Solution
+
+## 1. Objective (User Intent)
+
+Create a single root solution file `Digital-Worker-Demo.slnx` at the repo root that aggregates the existing Calculator and UrlShortener .NET projects, such that `dotnet build Digital-Worker-Demo.slnx` succeeds from the repo root.
+
+## 2. Current State (Explored)
+
+- `Calculator/`: `SciCalc.slnx` (workload-free: Domain + Domain.UnitTests), `SciCalc.App.slnx` (adds MAUI app projects; needs MAUI workloads), plus `Directory.Packages.props` / `Directory.Build.props`. Projects: `Domain/SciCalc.Domain/SciCalc.Domain.csproj` (net10.0), `Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj` (net10.0), `Presentation/SciCalc.Maui/SciCalc.Maui.csproj` (net10.0-android/ios/maccatalyst[/windows] — MAUI workloads required), `Presentation/SciCalc.Maui.UnitTests/SciCalc.Maui.UnitTests.csproj`.
+- `UrlShortener/`: `UrlShortener.slnx`, plus `Directory.Packages.props` / `Directory.Build.props`. Projects: `Presentation/UrlShortener.Api/UrlShortener.Api.csproj` (net10.0), `Presentation/UrlShortener.Api.UnitTests/UrlShortener.Api.UnitTests.csproj` (net10.0), `Presentation/UrlShortener.Api.IntegrationTests/UrlShortener.Api.IntegrationTests.csproj` (net10.0).
+- Environment: .NET SDK 10.0.302 installed (native `.slnx` support). README documents the MAUI workload caveat (NETSDK1147 without workloads).
+
+## 3. Key Design Decision: Project Inclusion
+
+Include the 6 workload-free projects: `SciCalc.Domain`, `SciCalc.Domain.UnitTests`, `SciCalc.Maui.UnitTests`, `UrlShortener.Api`, `UrlShortener.Api.UnitTests`, `UrlShortener.Api.IntegrationTests`.
+
+**[A1 — review amendment, applied]:** `SciCalc.Maui.UnitTests` is workload-free and IS included. It targets plain `net10.0` (`SciCalc.Maui.UnitTests.csproj:4`), has no project reference to `SciCalc.Maui.csproj` (no transitive MAUI dependency), builds with 0 errors and passes 18/18 tests on this Linux box without MAUI workloads (static packaging-conformance tests: `ConformanceTests.cs`, `PackagingManifestTests.cs`, `AndroidApplicationTests.cs`, `WindowsApplicationTests.cs`).
+
+Exclude only `SciCalc.Maui.csproj`: the MAUI project targets `net10.0-android;net10.0-ios;net10.0-maccatalyst` and fails with `NETSDK1147` on machines without MAUI workloads (per README), which would violate the "must build successfully" acceptance criterion. Mirrors the existing workload-free `SciCalc.slnx` precedent; the MAUI app remains buildable via `Calculator/SciCalc.App.slnx` on workload-equipped machines.
+
+## 4. [****] Steps
+
+1. Create `Digital-Worker-Demo.slnx` at the repo root, following the established XML format of the existing `.slnx` files, with `<Folder Name="/Calculator/Domain/">`, `<Folder Name="/Calculator/Presentation/">`, and `<Folder Name="/UrlShortener/Presentation/">` containing the 6 `<Project Path="...">` entries (paths relative to the repo root).
+2. Verify restore + build: `dotnet build Digital-Worker-Demo.slnx` from the repo root — must succeed with 0 errors.
+3. Sanity check (optional but recommended): `dotnet test Digital-Worker-Demo.slnx` — all included projects are workload-free xUnit.
+
+## 5. Rich Domain Model / PEAA Applicability
+
+Config-only task: no domain code, no new classes, no architecture changes — RDM/PEAA guidance is not applicable. Existing per-directory `Directory.Packages.props` / `Directory.Build.props` continue to apply unchanged (they resolve relative to each project's own directory); no root-level CPM file is introduced, so no central-package-management conflicts arise.
+
+## 6. Risks & Mitigations
+
+- Including MAUI projects breaks the build without workloads (NETSDK1147) → exclude them; document the decision.
+- Wrong relative paths in `.slnx` → paths relative to root; verified by the build step.
+- `.slnx` tooling support → SDK 10.0.302 installed; existing `.slnx` files already build in this repo.
+
+## 7. Verdict
+
+Simple config-level task (1 new file + build verification). This high-level [****] is sufficient to implement directly; the full [****] workflow is NOT required.
+
+Full [****] artifact: `Docs/_Current/[****].md`.
+
+---
+
+# User Prompt
+
 Fix SciCalc.Maui Windows build: add Microsoft.Extensions.Logging.Debug package reference and condition mobile TFMs on desktop builds. Context: Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj is a MAUI project (Sdk Microsoft.NET.Sdk.Razor) with TargetFrameworks net10.0-android;net10.0-ios;net10.0-maccatalyst and a conditional addition of net10.0-windows10.0.19041.0 on Windows. Calculator/Presentation/SciCalc.Maui/MauiProgram.cs line 22 calls builder.Logging.AddDebug(), which requires the Microsoft.Extensions.Logging.Debug NuGet package (not currently referenced). The repo uses Central Package Management: Calculator/Directory.Packages.props (ManagePackageVersionsCentrally=true). A unit test project Calculator/Presentation/SciCalc.Maui.UnitTests targets plain net10.0.
 
 # High-Level [****]: SciCalc.Maui — Windows build fix (Logging.Debug package + TFM conditioning)

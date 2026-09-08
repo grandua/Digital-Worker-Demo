@@ -35,4 +35,6 @@ The ASP.NET Core application and its xUnit tests are under [`UrlShortener/`](Url
 - **Public Trello board (input):** [View Demo Board](https://trello.com/invite/b/6a03d01d53cf7bb95f8325dd/ATTI3f3561b96a9f5663247cbafaa06b71b7DBE19FF1/digital-worker-demo)
 - **Public GitHub repo (output):** [Inspect Demo Repo & PRs](https://github.com/grandua/Digital-Worker-Demo)
 
-Clone the repository, inspect the Git history, and run the tests locally.
+Clone the repository, inspect the Git history, and run the tests locally:
+- **Calculator:** `dotnet test Calculator/SciCalc.slnx` (or `dotnet run --project Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj`)
+- **URL Shortener:** `dotnet test UrlShortener/UrlShortener.slnx`

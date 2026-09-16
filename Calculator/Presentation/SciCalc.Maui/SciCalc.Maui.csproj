@@ -12,6 +12,14 @@
     <ApplicationId>com.scicalc.app</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
+
+    <!-- Run unpackaged so the exe can be launched directly (dotnet run) without MSIX
+         package identity; packaged activation fails with REGDB_E_CLASSNOTREG. -->
+    <WindowsPackageType>None</WindowsPackageType>
+
+    <!-- Ship the Windows App SDK with the app so unpackaged launch works on machines
+         without the Windows App SDK runtime installed. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.2</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>

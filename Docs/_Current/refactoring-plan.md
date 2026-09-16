@@ -1,9 +1,9 @@
-﻿# Root Digital-Worker-Demo.slnx — Code Smells Audit
+﻿# SciCalc.Maui Windows unpackaged launch — Code Smells Audit
 
 **Workflow:** `[****]-and-plan-refactoring`  
-**Session:** `cdd111bdd500450b8199084a4d1cecb8`  
+**Session:** `bd5e93164d0b461081f9e1518713f2e1`  
 **Mode:** AUDIT ONLY — findings + `//TODO` markers only; no behavior/architecture/implementation fixes.  
-**Date:** 2026-09-08  
+**Date:** 2026-09-16  
 
 ## Scope (user-specified)
 
@@ -11,33 +11,41 @@ Unstaged / untracked only:
 
 | Path | Status | Kind |
 |------|--------|------|
-| `Digital-Worker-Demo.slnx` | new (untracked) | XML solution aggregate |
-| `Docs/_Current/[****].md` | new (untracked) | Markdown [****] |
-| `Docs/_Current/prompt.md` | modified | Markdown prompt + [****] notes |
+| `Calculator/Presentation/SciCalc.Maui/Platforms/Windows/app.manifest` | modified | XML root `manifestVersion="1.0"` fix |
+| `Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj` | modified | MSBuild: `WindowsPackageType=None`, `WindowsAppSDKSelfContained=true` + comments |
+| `Calculator/Presentation/SciCalc.Maui.UnitTests/WindowsAppManifestTests.cs` | new (untracked) | sealed xUnit conformance tests (5 facts) |
 
-**Task context:** config-only root `.slnx` aggregating Calculator + UrlShortener workload-free projects. Verified: `dotnet build Digital-Worker-Demo.slnx` (0 warnings, 0 errors). **No C# / compiled product code in the change set.**
+**Task context:** config/XML + test-only delta enabling unpackaged Windows launch. **No production C# behavior changes.**
 
 ## Smell inventory (this scope)
 
 | Severity | Count | Notes |
 |----------|------:|-------|
-| CRITICAL | 0 | No architecture/layer/circular issues possible (no code) |
-| HIGH | 0 | No methods, statics, LPL, Feature Envy, duplicates |
-| MEDIUM | 0 | No message chains, naming, method length |
-| LOW | 0 | No comment/clarity code smells |
+| CRITICAL | 0 | No architecture/layer/circular issues |
+| HIGH | 0 | No LPL, statics (non-const), Feature Envy, long methods >20, duplicates >2 |
+| MEDIUM | 0 | No message chains 3+, method length 11–20, naming issues |
+| LOW | 0 | Comments in csproj are clear intent |
 | **Total new open** | **0** | |
 
 ## Explicit non-findings
 
-- **No C# / OOP surface:** workflow smell checklist (static members, Feature Envy, Tell-Don't-Ask, message chains, layer mixing, Long Method, LPL, Primitive Obsession, magic numbers in code, cyclomatic complexity, duplicates) does **not apply** to XML solution entries or Markdown docs.
-- **Scripts/config rule:** treat as config; skip OOP/RDM/architecture smell steps for product code (none present).
-- **`Digital-Worker-Demo.slnx`:** 3 folders, 6 project paths — valid relative paths matching existing tree; no smell taxonomy entry for solution folder layout.
-- **Docs:** [****]/prompt Markdown only; not code.
-- **Prior SciCalc / UrlShortener / packaging / TestServerFixture findings** in historical [****] sections are **out of this scope** and are not re-opened here.
+- **app.manifest:** 1-line assembly root attribute fix; not OOP surface.
+- **SciCalc.Maui.csproj:** two properties + explanatory comments; config only; comments state intent (unpackaged + self-contained WASDK).
+- **WindowsAppManifestTests.cs:**
+  - Sealed class, inherits `ConformanceTests` (sibling convention).
+  - `private const` strings only (acceptable static constants).
+  - No non-constant static members.
+  - Methods ≤ ~6 lines; params ≤ 0 user params (xUnit facts).
+  - No LPL, data clumps, speculative generality.
+  - `project.Element(...)?.Element(...)` is 2-level chain (not 3+ message chain).
+  - Duplicate shape of two csproj asserts appears twice only (HIGH needs >2).
+  - Magic strings for XML local names are test assertions; attribute names already const where reused.
+  - No domain/data layer code; presentation config guarded by tests only.
+- **Prior [****]** (root `.slnx` session `cdd111bdd500450b8199084a4d1cecb8`) replaced — out of this scope.
 
 ## TODO markers
 
-_None added._ No code locations exist in scope for `//TODO:` audit markers.
+_None added._ No smell locations warrant `//TODO:` in changed files.
 
 ## Named refactoring steps (this scope)
 
@@ -45,29 +53,27 @@ _None._ No behavior-preserving structural steps required.
 
 ## XP simplicity (this delta)
 
-- Builds clean (`dotnet build Digital-Worker-Demo.slnx` 0/0).
-- Intent clear (root aggregate of workload-free projects).
+- Intent clear (unpackaged direct exe launch + self-contained WASDK).
 - No product duplicate code introduced.
-- Fewest artifacts (one new `.slnx`).
+- Fewest artifacts (manifest fix, two props, one test class).
+- Mirrors sibling `*Tests : ConformanceTests` pattern.
 
 ## Verdict
 
-**No smells found in review scope.** Expectation met (config-only change set). No mandatory or optional refactoring planned for this delta.
-
----
+**No smells found in review scope.** Expectation met (config/XML/test-only change set).
 
 ## Loop progress notes
 
 | Iteration theme | Result |
 |-----------------|--------|
-| Member signatures (LPL, data clumps, speculative generality) | N/A — no methods/ctors in scope |
-| Statics | N/A — no types |
-| Class state / Feature Envy / TDA / chains | N/A |
-| Layers (Domain/Data/Presentation) | N/A — config only |
-| Duplicates | N/A — no code algorithms |
-| Complexity / cohesion / temporal coupling | N/A |
-| Primitive obsession / magic | N/A in product code |
-| Naming / framework checklist | N/A for `.slnx`/Markdown |
-| Remaining checklist items | N/A |
+| Member signatures (LPL, data clumps, speculative generality) | None — facts take no params; no unused members |
+| Statics | None — only `private const` strings |
+| Class state / Feature Envy / TDA / chains | None — short asserts; chains depth ≤2 |
+| Layers (Domain/Data/Presentation) | N/A product code; config + tests only |
+| Duplicates | None >2 occurrences |
+| Complexity / cohesion / temporal coupling | CC=1 per fact; single responsibility |
+| Primitive obsession / magic | Test XML literals only; no product magic |
+| Naming / framework checklist | Names match sibling convention |
+| Remaining checklist items | N/A / none |
 
-*End root `.slnx` smells audit — session `cdd111bdd500450b8199084a4d1cecb8`.*
+*End Windows unpackaged-launch smells audit — session `bd5e93164d0b461081f9e1518713f2e1`.*

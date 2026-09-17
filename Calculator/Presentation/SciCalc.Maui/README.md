@@ -1,5 +1,7 @@
 # SciCalc (MAUI Blazor Hybrid)
 
+![SciCalc app running on Windows](../../SciCalc-app-screenshot.png)
+
 Scientific calculator built as a .NET 10 MAUI Blazor Hybrid app over the `SciCalc.Domain` engine. All calculation behavior lives in `SciCalc.Domain` (hand-written parser/evaluator, `Calculator` session aggregate); this project only sends `InputKey` presses to the `Calculator` aggregate (registered as a DI singleton in `MauiProgram.cs`) and renders its state.
 
 ## Solution layout

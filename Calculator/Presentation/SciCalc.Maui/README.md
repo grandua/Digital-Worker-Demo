@@ -1,4 +1,4 @@
-# SciCalc (MAUI Blazor Hybrid)
+﻿# SciCalc (MAUI Blazor Hybrid)
 
 ![SciCalc app running on Windows](../../SciCalc-app-screenshot.png)
 
@@ -33,13 +33,23 @@ Always name the solution file explicitly — the repo also hosts `UrlShortener/U
 
 Windows is the primary dev/demo target (`net10.0-windows10.0.19041.0`); Android/iOS/MacCatalyst are configured to compile (`dotnet workload install maui` or the per-platform workloads are required).
 
-On a machine without workloads (e.g. the Linux sandbox), `dotnet build Presentation/SciCalc.Maui/SciCalc.Maui.csproj` (or `dotnet build SciCalc.App.slnx`) fails with `NETSDK1147` (missing `maui-android` workload) — expected and accepted; it must not block verification. Razor/C# correctness of the UI files was compile-checked with a temporary `Microsoft.NET.Sdk.Razor` harness: a scratch project placed inside `Presentation/SciCalc.Maui` (so default globs pick up `_Imports.razor`, `App.cs`, `MauiProgram.cs`, `MainPage.xaml`/`MainPage.xaml.cs` and `Components/*`) with plain `net10.0` TFM, `FrameworkReference Microsoft.AspNetCore.App`, package references `Microsoft.Maui.Controls` + `Microsoft.AspNetCore.Components.WebView.Maui`, a project reference to `SciCalc.Domain`, and `Platforms/**` excluded from compilation. The harness reported 0 errors, with a single expected `CS0618` obsolescence warning from `App.cs`'s `MainPage = new MainPage()` assignment (MAUI 10 deprecates that setter; the assignment is kept intentionally), and the MAUI XAML source generator validated `MainPage.xaml` by generating its `InitializeComponent`. The harness is deleted after use.
+On a machine without workloads (e.g. the Linux sandbox), `dotnet build Presentation/SciCalc.Maui/SciCalc.Maui.csproj` (or `dotnet build SciCalc.App.slnx`) fails with `NETSDK1147` (missing `maui-android` workload) — expected and accepted; it must not block verification. Razor/C# correctness of the UI files was compile-checked with a temporary `Microsoft.NET.Sdk.Razor` harness: a scratch project placed inside `Presentation/SciCalc.Maui` (so [****] globs pick up `_Imports.razor`, `App.cs`, `MauiProgram.cs`, `MainPage.xaml`/`MainPage.xaml.cs` and `Components/*`) with plain `net10.0` TFM, `FrameworkReference Microsoft.AspNetCore.App`, package references `Microsoft.Maui.Controls` + `Microsoft.AspNetCore.Components.WebView.Maui`, a project reference to `SciCalc.Domain`, and `Platforms/**` excluded from compilation. The harness reported 0 errors, with a single expected `CS0618` obsolescence warning from `App.cs`'s `MainPage = new MainPage()` assignment (MAUI 10 deprecates that setter; the assignment is kept intentionally), and the MAUI XAML source generator validated `MainPage.xaml` by generating its `InitializeComponent`. The harness is deleted after use.
 
 ## Behavior decisions
 
 - **ANS before the first evaluated answer inserts `0`** (deterministic; the ANS key is never a dead key).
+- **Operators and functions continue from the answer after `=`**: pressing `2 + 3 =` then an operator (`+ 4 =` → `9`) or a function (`x²` → `sqr(5)`, `sin` → `sin(5)`) seeds the expression with the last result and closes the call for prefix functions, so a live preview is calculated immediately. Digits, decimals, parentheses and constants after `=` start a fresh expression; AC clears the continuation state so operators never resurrect a stale answer.
+- **Keyboard input**: when the calculator surface has focus, physical keys map to keys — digits, `.`/`,` (decimal), `+` `-` `*` (or `x`) `/` `^` `%` (operators), `m`/`M` (mod), `(` `)`, `=` (equals), `Backspace`/`Delete` (DEL), `Escape` (AC). With a keypad button focused, `Enter`/`Space` still activate that button and are not double-processed.
+- **Error lockout UI**: after an error every control except AC is disabled (visually dimmed) while the error is displayed; AC (or `Escape`) clears it.
 - History keeps the last 10 evaluations, newest first; tapping an entry restores its expression into the input buffer.
 - A numeric literal beyond `double` range (309+ significant digits) locks the calculator with the `Overflow` error state; only AC unfreezes it. Evaluation-time overflow (e.g. `171!`, `2^10000`) uses the same `Overflow` error path.
 - After an error, every keypress except AC is ignored (lockout); the error banner shows "Error" plus a short reason.
 - Percent semantics: standalone `50%` → 0.5; baseline-scaled on `+`/`−` (`200 + 10%` → 220).
 - No persistence of history or memory across launches.
+
+## Accessibility
+
+- The display mirrors results and errors into a visually hidden `role="status"`/`aria-live` region; errors are additionally announced via `role="alert"`.
+- The DEG/RAD badge announces its mode change via `aria-live`.
+- Symbolic keys carry descriptive accessible names (`÷` → "Divide", `AC` → "All clear", `x²` → "Square", …) and memory buttons are named per slot ("Store in memory slot M1", …) with slot badges announcing empty/holding state.
+- Keyboard focus is always visible: the calculator container and every control show a strong focus ring (`:focus-visible` outlines).

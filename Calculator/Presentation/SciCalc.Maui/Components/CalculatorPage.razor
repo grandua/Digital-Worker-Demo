@@ -2,7 +2,7 @@
 @using System.Globalization
 @inject Calculator Calc
 
-<div class="calc">
+<div class="calc" role="group" aria-label="Scientific calculator" tabindex="0" @onkeydown="HandleKeyDown">
     <header class="calc-header">
         <div class="brand-lockup">
             <div class="brand-mark" aria-hidden="true">∑</div>
@@ -11,19 +11,19 @@
                 <span class="calc-subtitle">Precision, made simple</span>
             </div>
         </div>
-        <button class="mode-toggle" @onclick="() => Press(InputKey.DegRadToggle)">
-            <span class="mode-dot"></span>
-            <span>@ModeText</span>
+        <button class="mode-toggle" disabled="@Calc.Locked" @onclick="() => Press(InputKey.DegRadToggle)" aria-label="@ModeToggleName">
+            <span class="mode-dot" aria-hidden="true"></span>
+            <span aria-live="polite">@ModeText</span>
         </button>
     </header>
-    <section class="display">
+    <section class="display" aria-label="Calculator display">
         <div class="display-meta">
             <span>SCIENTIFIC MODE</span>
-            <span class="display-live"><span class="live-dot"></span>LIVE</span>
+            <span class="display-live" aria-hidden="true"><span class="live-dot"></span>LIVE</span>
         </div>
         @if (Calc.Locked)
         {
-            <div class="error-title">Error</div>
+            <div class="error-title" role="alert">Error</div>
             <div class="error-reason">@Reason(Calc.ActiveError!.Value)</div>
         }
         else
@@ -31,16 +31,17 @@
             <div class="entry">@ExpressionText</div>
             <div class="result">@ResultText</div>
         }
+        <div class="sr-only" role="status" aria-live="polite">@StatusText</div>
     </section>
-    <section class="memory">
+    <section class="memory" aria-label="Memory slots">
         <div class="memory-heading">MEMORY</div>
         @foreach (MemorySlot slot in memorySlots)
         {
             <div class="mem-group" @key="slot.Id">
-                <span class="mem-badge @(Calc.Memory.IsNonEmpty(slot.Id) ? "on" : "")">@slot.Name</span>
-                <button class="key mem" @onclick="() => Press(slot.Store)">STO</button>
-                <button class="key mem" @onclick="() => Press(slot.Recall)">MR</button>
-                <button class="key mem" @onclick="() => Press(slot.Clear)">MC</button>
+                <span class="mem-badge @(Calc.Memory.IsNonEmpty(slot.Id) ? "on" : "")" aria-label="@MemoryBadgeName(slot)">@slot.Name</span>
+                <button class="key mem" disabled="@Calc.Locked" @onclick="() => Press(slot.Store)" aria-label="@MemoryButtonName("Store in", slot)">STO</button>
+                <button class="key mem" disabled="@Calc.Locked" @onclick="() => Press(slot.Recall)" aria-label="@MemoryButtonName("Recall", slot)">MR</button>
+                <button class="key mem" disabled="@Calc.Locked" @onclick="() => Press(slot.Clear)" aria-label="@MemoryButtonName("Clear", slot)">MC</button>
             </div>
         }
     </section>
@@ -49,13 +50,13 @@
             <div class="pad sci">
                 @foreach (KeyDefinition key in functionKeys)
                 {
-                    <button class="key sci" @key="key.Key" @onclick="() => Press(key.Key)">@key.Label</button>
+                    <button class="key sci" disabled="@Calc.Locked" @key="key.Key" @onclick="() => Press(key.Key)" aria-label="@KeyName(key)">@key.Label</button>
                 }
             </div>
             <div class="pad main">
                 @foreach (KeyDefinition key in mainKeys)
                 {
-                    <button class="@key.Style" @key="key.Key" @onclick="() => Press(key.Key)">@key.Label</button>
+                    <button class="@key.Style" disabled="@(Calc.Locked && key.Key != InputKey.AllClear)" @key="key.Key" @onclick="() => Press(key.Key)" aria-label="@KeyName(key)">@key.Label</button>
                 }
             </div>
         </section>
@@ -70,7 +71,7 @@
                 <div class="history-list">
                     @foreach (var item in NewestFirst)
                     {
-                        <button class="history-item" @key="item.Index" @onclick="() => Restore(item.Entry)">
+                        <button class="history-item" disabled="@Calc.Locked" @key="item.Index" @onclick="() => Restore(item.Entry)" aria-label="@HistoryItemName(item.Entry)">
                             <span class="history-expression">@HistoryText(item.Entry.Tokens)</span>
                             <span class="history-result">= @Format(item.Entry.ResultValue)</span>
                         </button>
@@ -125,53 +126,53 @@
         new("sin", InputKey.Sin),
         new("cos", InputKey.Cos),
         new("tan", InputKey.Tan),
-        new("asin", InputKey.Asin),
-        new("acos", InputKey.Acos),
-        new("atan", InputKey.Atan),
-        new("sinh", InputKey.Sinh),
-        new("cosh", InputKey.Cosh),
-        new("tanh", InputKey.Tanh),
-        new("log", InputKey.Log10),
-        new("ln", InputKey.Ln),
-        new("eˣ", InputKey.Exp),
-        new("10ˣ", InputKey.TenPow),
-        new("n!", InputKey.Factorial),
-        new("x²", InputKey.Square),
-        new("x³", InputKey.Cube),
-        new("√", InputKey.Sqrt),
-        new("³√", InputKey.Cbrt),
-        new("1/x", InputKey.Reciprocal),
-        new("|x|", InputKey.Abs),
-        new("π", InputKey.Pi),
-        new("e", InputKey.E),
+        new("asin", InputKey.Asin, Name: "Arcsine"),
+        new("acos", InputKey.Acos, Name: "Arccosine"),
+        new("atan", InputKey.Atan, Name: "Arctangent"),
+        new("sinh", InputKey.Sinh, Name: "Hyperbolic sine"),
+        new("cosh", InputKey.Cosh, Name: "Hyperbolic cosine"),
+        new("tanh", InputKey.Tanh, Name: "Hyperbolic tangent"),
+        new("log", InputKey.Log10, Name: "Common logarithm base 10"),
+        new("ln", InputKey.Ln, Name: "Natural logarithm"),
+        new("eˣ", InputKey.Exp, Name: "E to the power of x"),
+        new("10ˣ", InputKey.TenPow, Name: "Ten to the power of x"),
+        new("n!", InputKey.Factorial, Name: "Factorial"),
+        new("x²", InputKey.Square, Name: "Square"),
+        new("x³", InputKey.Cube, Name: "Cube"),
+        new("√", InputKey.Sqrt, Name: "Square root"),
+        new("³√", InputKey.Cbrt, Name: "Cube root"),
+        new("1/x", InputKey.Reciprocal, Name: "Reciprocal"),
+        new("|x|", InputKey.Abs, Name: "Absolute value"),
+        new("π", InputKey.Pi, Name: "Pi"),
+        new("e", InputKey.E, Name: "Euler's number"),
     ];
 
     private readonly List<KeyDefinition> mainKeys =
     [
-        new("AC", InputKey.AllClear, "key danger"),
-        new("DEL", InputKey.Delete, "key warn"),
-        new("(", InputKey.OpenParen),
-        new(")", InputKey.CloseParen),
-        new("÷", InputKey.Divide),
+        new("AC", InputKey.AllClear, "key danger", Name: "All clear"),
+        new("DEL", InputKey.Delete, "key warn", Name: "Delete last input"),
+        new("(", InputKey.OpenParen, Name: "Open parenthesis"),
+        new(")", InputKey.CloseParen, Name: "Close parenthesis"),
+        new("÷", InputKey.Divide, Name: "Divide"),
         new("7", InputKey.Digit7),
         new("8", InputKey.Digit8),
         new("9", InputKey.Digit9),
-        new("%", InputKey.Percent),
-        new("×", InputKey.Multiply),
+        new("%", InputKey.Percent, Name: "Percent"),
+        new("×", InputKey.Multiply, Name: "Multiply"),
         new("4", InputKey.Digit4),
         new("5", InputKey.Digit5),
         new("6", InputKey.Digit6),
-        new("^", InputKey.Power),
-        new("−", InputKey.Subtract),
+        new("^", InputKey.Power, Name: "Power"),
+        new("−", InputKey.Subtract, Name: "Subtract"),
         new("1", InputKey.Digit1),
         new("2", InputKey.Digit2),
         new("3", InputKey.Digit3),
-        new("mod", InputKey.Modulo),
-        new("+", InputKey.Add),
+        new("mod", InputKey.Modulo, Name: "Modulo"),
+        new("+", InputKey.Add, Name: "Add"),
         new("0", InputKey.Digit0),
-        new(".", InputKey.Dot),
-        new("ANS", InputKey.Ans),
-        new("=", InputKey.Eq, "key equals wide"),
+        new(".", InputKey.Dot, Name: "Decimal point"),
+        new("ANS", InputKey.Ans, Name: "Insert last answer"),
+        new("=", InputKey.Eq, "key equals wide", Name: "Equals"),
     ];
 
     private readonly List<MemorySlot> memorySlots =
@@ -181,12 +182,64 @@
         new("M3", MemorySlotId.M3, InputKey.StoreM3, InputKey.RecallM3, InputKey.ClearM3),
     ];
 
+    private static readonly Dictionary<string, InputKey> keyboardKeys = new()
+    {
+        ["0"] = InputKey.Digit0,
+        ["1"] = InputKey.Digit1,
+        ["2"] = InputKey.Digit2,
+        ["3"] = InputKey.Digit3,
+        ["4"] = InputKey.Digit4,
+        ["5"] = InputKey.Digit5,
+        ["6"] = InputKey.Digit6,
+        ["7"] = InputKey.Digit7,
+        ["8"] = InputKey.Digit8,
+        ["9"] = InputKey.Digit9,
+        ["."] = InputKey.Dot,
+        [","] = InputKey.Dot,
+        ["+"] = InputKey.Add,
+        ["-"] = InputKey.Subtract,
+        ["*"] = InputKey.Multiply,
+        ["x"] = InputKey.Multiply,
+        ["/"] = InputKey.Divide,
+        ["^"] = InputKey.Power,
+        ["%"] = InputKey.Percent,
+        ["m"] = InputKey.Modulo,
+        ["M"] = InputKey.Modulo,
+        ["("] = InputKey.OpenParen,
+        [")"] = InputKey.CloseParen,
+        ["="] = InputKey.Eq,
+        ["Backspace"] = InputKey.Delete,
+        ["Delete"] = InputKey.Delete,
+        ["Escape"] = InputKey.AllClear,
+    };
+
     private IEnumerable<(HistoryEntry Entry, int Index)> NewestFirst =>
         Calc.History.Select((entry, index) => (entry, index)).Reverse();
 
     private string ModeText => Calc.Mode == AngleMode.Degrees ? "DEG" : "RAD";
 
+    private string ModeToggleName => $"Angle mode {ModeText}. Press to switch to {(Calc.Mode == AngleMode.Degrees ? "radians" : "degrees")}.";
+
     private string ExpressionText => Calc.Buffer.Tokens.Count == 0 ? "0" : DisplayText(Calc.Buffer.Tokens, isLive: true);
+
+    private string StatusText
+    {
+        get
+        {
+            if (Calc.Locked) return $"Error: {Reason(Calc.ActiveError!.Value)}";
+            if (Calc.Buffer.Tokens.Count == 0 && Calc.LastAnswer is { } answer) return $"Result {Format(answer)}";
+            if (Calc.Preview is { } preview) return $"Result {Format(preview)}";
+            return string.Empty;
+        }
+    }
+
+    private string MemoryBadgeName(MemorySlot slot) =>
+        Calc.Memory.IsNonEmpty(slot.Id) ? $"Memory slot {slot.Name} holds a value" : $"Memory slot {slot.Name} is empty";
+
+    private string MemoryButtonName(string action, MemorySlot slot) => $"{action} memory slot {slot.Name}";
+
+    private string HistoryItemName(HistoryEntry entry) =>
+        $"Restore calculation {HistoryText(entry.Tokens)} equals {Format(entry.ResultValue)}";
 
     private string HistoryText(IReadOnlyList<Token> tokens) => DisplayText(tokens, isLive: false);
 
@@ -221,6 +274,12 @@
 
     private void Restore(HistoryEntry entry) => Calc.RestoreHistory(entry);
 
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.CtrlKey || e.AltKey || e.MetaKey) return;
+        if (keyboardKeys.TryGetValue(e.Key, out InputKey key)) Press(key);
+    }
+
     private string Format(double value) => value.ToString("G15", CultureInfo.InvariantCulture);
 
     private string Reason(CalcError error) => error switch
@@ -234,7 +293,9 @@
         _ => "Malformed expression",
     };
 
-    private sealed record KeyDefinition(string Label, InputKey Key, string Style = "key");
+    private sealed record KeyDefinition(string Label, InputKey Key, string Style = "key", string? Name = null);
+
+    private string KeyName(KeyDefinition key) => key.Name ?? key.Label;
 
     private sealed record MemorySlot(string Name, MemorySlotId Id, InputKey Store, InputKey Recall, InputKey Clear);
 }

@@ -74,6 +74,8 @@ public sealed class Calculator
 
     public InputBuffer Buffer { get; } = new();
 
+    private bool seedPending;
+
     public MemoryBank Memory { get; } = new();
 
     public IReadOnlyList<HistoryEntry> History => history.AsReadOnly();
@@ -94,6 +96,8 @@ public sealed class Calculator
     {
         if (Locked) { HandleLockedPress(key); return; }
         if (HandleCommand(key)) return;
+        if (seedPending && ContinuesFromAnswer(key)) { SeedAnswer(key); return; }
+        seedPending = false;
         AppendKey(key);
         if (Buffer.HasLiteralOverflow) FailWith(CalcError.Overflow);
     }
@@ -105,6 +109,7 @@ public sealed class Calculator
     {
         if (Locked) return;
         Buffer.Clear();
+        seedPending = false;
         foreach (Token token in entry.Tokens) Buffer.Add(token);
     }
 
@@ -117,6 +122,7 @@ public sealed class Calculator
     {
         Buffer.Clear();
         ActiveError = null;
+        seedPending = false;
     }
 
     private bool HandleCommand(InputKey key)
@@ -175,6 +181,7 @@ public sealed class Calculator
     private void RecallMemory(MemorySlotId slot)
     {
         if (Memory.Recall(slot) is not { } value) return;
+        seedPending = false;
         Buffer.Add(Token.Number(value));
     }
 
@@ -184,7 +191,32 @@ public sealed class Calculator
         if (result.HasError) { FailWith(result.Error!.Value); return; }
         PushHistory(result.Value!.Value);
         Buffer.Clear();
+        seedPending = true;
     }
+
+    private bool ContinuesFromAnswer(InputKey key) =>
+        Buffer.Tokens.Count == 0
+        && (IsOperatorKey(key) || functionKeys.ContainsKey(key) || key == InputKey.Percent);
+
+    private bool IsOperatorKey(InputKey key) =>
+        keyTokens.TryGetValue(key, out Token token) && token.Kind == TokenKind.Operator;
+
+    private void SeedAnswer(InputKey key)
+    {
+        seedPending = false;
+        if (functionKeys.TryGetValue(key, out FunctionKind function) && IsPrefixCall(function))
+        {
+            AppendFunction(function);
+            Buffer.Add(Token.Number(LastAnswer!.Value));
+            Buffer.Add(Token.CloseParen());
+            return;
+        }
+        Buffer.Add(Token.Number(LastAnswer!.Value));
+        AppendKey(key);
+    }
+
+    private bool IsPrefixCall(FunctionKind function) =>
+        function != FunctionKind.Factorial && !IsPostfixWrapKey(function);
 
     private void FailWith(CalcError error) => ActiveError = error;
 

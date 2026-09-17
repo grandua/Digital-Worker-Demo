@@ -4,10 +4,23 @@
 
 <div class="calc">
     <header class="calc-header">
-        <span class="calc-title">SciCalc</span>
-        <button class="mode-toggle" @onclick="() => Press(InputKey.DegRadToggle)">@ModeText</button>
+        <div class="brand-lockup">
+            <div class="brand-mark" aria-hidden="true">∑</div>
+            <div class="title-stack">
+                <span class="calc-title">SciCalc</span>
+                <span class="calc-subtitle">Precision, made simple</span>
+            </div>
+        </div>
+        <button class="mode-toggle" @onclick="() => Press(InputKey.DegRadToggle)">
+            <span class="mode-dot"></span>
+            <span>@ModeText</span>
+        </button>
     </header>
     <section class="display">
+        <div class="display-meta">
+            <span>SCIENTIFIC MODE</span>
+            <span class="display-live"><span class="live-dot"></span>LIVE</span>
+        </div>
         @if (Calc.Locked)
         {
             <div class="error-title">Error</div>
@@ -20,6 +33,7 @@
         }
     </section>
     <section class="memory">
+        <div class="memory-heading">MEMORY</div>
         @foreach (MemorySlot slot in memorySlots)
         {
             <div class="mem-group" @key="slot.Id">

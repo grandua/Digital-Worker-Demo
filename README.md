@@ -21,8 +21,6 @@ Features true OOP / Rich Domain Model architecture. ~2,000 LOC across 46 files w
 
 The application is under [`Calculator/`](Calculator/), built with .NET 10 MAUI Blazor Hybrid and xUnit. See the [SciCalc project guide](Calculator/Presentation/SciCalc.Maui/README.md) for its layout, verification commands, platform targets, behavior decisions, and MAUI workload caveat.
 
-![SciCalc app running on Windows](Calculator/SciCalc-app-screenshot.png)
-
 > **Note: MAUI desktop apps are not supported in the DigitalWorker Linux container.** SciCalc is a native MAUI Blazor Hybrid desktop app and requires a desktop OS (Windows or macOS) with MAUI workloads installed to build and run. The DigitalWorker prod container is headless Ubuntu and has no MAUI runtime, display server, or browser — it can verify the Domain layer (`dotnet test Calculator/SciCalc.slnx`) but cannot launch or screenshot the MAUI app. UI/layout work on SciCalc is performed on a local dev machine, not in the container.
 
 #### Running SciCalc locally
@@ -60,3 +58,6 @@ The ASP.NET Core application and its xUnit tests are under [`UrlShortener/`](Url
 Clone the repository, inspect the Git history, and run the tests locally:
 - **Calculator:** `dotnet test Calculator/SciCalc.slnx` (or `dotnet run --project Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj`)
 - **URL Shortener:** `dotnet test UrlShortener/UrlShortener.slnx`
+
+
+![SciCalc app running on Windows](Calculator/SciCalc-app-screenshot.png)

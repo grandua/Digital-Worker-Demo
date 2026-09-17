@@ -2,6 +2,59 @@
 
 Fix 7 end-to-end testing defects in SciCalc (see task card): (1) operators after `=` start from an empty expression and error; (2) scientific functions after `=` create invalid expressions; (3) no keyboard input; (4) error-lockout controls look active but do nothing; (5) results/errors/mode/memory lack accessible names and announcements; (6) layout breaks below ~720px width / short height; (7) keyboard focus is hard to see.
 
+# High-Level [****]: SciCalc — Fix 7 E2E Defects (continuation, keyboard, lockout, accessibility, responsive layout, focus)
+
+## Ground truth (verified in this worktree, HEAD 26bb24e)
+All 7 defects are already fixed at HEAD by commit 26bb24e ("Auto-commit changes by Digital Worker"), which implements the [****] recorded below in this file. Verified by reading the code and running the full workload-free test gate: 251/251 SciCalc.Domain.UnitTests green (including 13 ContinuationTests) and 23/23 SciCalc.Maui.UnitTests green. This [****] therefore documents the fix design (as implemented) and reduces the remaining work to verification; if a target branch predates 26bb24e, applying that commit's diff IS the fix.
+
+## New Classes analysis (pre-condition search, Domain-first)
+No new classes. Searched `Calculator/Domain/SciCalc.Domain` (*.cs) and the presentation layer for existing owners of each planned behavior:
+- Post-equals continuation state → host: `Calculator` aggregate (owns session state: `Buffer`, `History`, `LastAnswer`, `ActiveError`; `Press(InputKey)` is its behavior). Second candidate considered: `InputBuffer` — rejected (it is a token list with editing text only; it has no knowledge of answers/history, and answer seeding is session policy, not buffer mechanics). Implemented as the private `seedPending` flag plus `ContinuesFromAnswer`/`SeedAnswer` methods on `Calculator`.
+- Keyboard mapping, accessible naming, announcements, lockout disabling, responsive/focus styling → host: existing `CalculatorPage.razor` (+ `.razor.css`), which already renders all domain state and owns all input routes. A separate KeyboardMapper class was rejected as a Lazy Class (one static dictionary, no per-call state → a static map field on the component).
+- New Classes section is empty → [****] skipped (per workflow rule). Anti-procedural / Domain-first checklist passes: behavior lives on the existing aggregate; no new service or helper classes.
+
+## Root causes (original defects) and the fix that addresses each
+- Issues 1+2: `EvaluateEquals` cleared the buffer, so the next operator/function landed on an empty token list and the parser failed. Fix: `seedPending` set after a successful `=`; when the next key continues the expression (operator, function, percent) on an empty buffer, seed `LastAnswer` first — postfix-wrap functions wrap the answer (`sqr(5)`), prefix calls get the answer inside (`sin(5`); digits/dot/constants/parens start fresh. AC, history restore and memory recall clear the pending seed.
+- Issue 3: no keydown handling → keyboard map on the focusable `.calc` container (`tabindex="0"`, `@onkeydown`): digits, `.`/`,`, `+ - * x / ^ %`, `m/M`, `(`, `)`, `=`, Backspace/Delete → DEL, Escape → AC; Ctrl/Alt/Meta combos ignored. Enter deliberately unmapped (it would double-activate the focused keypad button).
+- Issue 4: lockout invisible → all controls `disabled` while `Calc.Locked` except AC; `:disabled` styling (opacity + not-allowed cursor); AC (and Escape) remain the only recovery path.
+- Issue 5: accessible status → descriptive `aria-label`s (symbolic keys, per-slot STO/MR/MC, memory badge state, history items, mode toggle), `role="alert"` error banner, visually hidden `role="status"`/`aria-live="polite"` announcer for results/errors, `aria-live` on the mode badge.
+- Issue 6: narrow/short layout → `overflow-y:auto` on `.calc`; media queries ≤900px, ≤720px (single-column body, wrapping sci pad, stacked memory, min-height history), ≤560px, and ≤640px height (compact display/keys/memory).
+- Issue 7: focus visibility → `:focus-visible` rings on the `.calc` container and every control (3px outline + halo).
+
+## Architecture check (/[****])
+Layer split respected: domain behavior (continuation seeding, lockout rules) lives in the Domain layer aggregate; the presentation layer only maps physical keys to `InputKey` and renders/announces domain state. No UI types in Domain, no calculation logic in the component. Physical components and flow: SciCalc.Maui Blazor component (DI singleton `Calculator`) → `Calculator.Press(InputKey)` → domain state (Buffer/History/ActiveError) → re-render + aria announcements. Data flow only; control flow unchanged.
+
+## Assumptions
+- The keyboard focus model is the BlazorWebView content; the focusable `.calc` container is the input surface.
+- The MAUI app cannot be compiled in this Linux container (no workloads); presentation verification is via the workload-free SciCalc.Maui.UnitTests plus static markup/CSS review.
+
+## Decisions / trade-offs
+- Seeding implemented in Domain (not UI): one rule for mouse/keyboard/ANS and it is unit-testable.
+- Controls disabled (not hidden) during lockout: stable layout; AC always available.
+- Escape doubles as AC during lockout (only keyboard recovery path).
+- Continuation seeding restricted to operator/function/percent keys; value keys start fresh (mainstream calculator UX).
+
+## Scope
+- In: the 7 defects; 13 continuation tests; README behavior notes.
+- Out: repeated-`=` repeat-last-operation semantics, persistence, MAUI on-device verification.
+
+## Acceptance criteria (verified green in this worktree)
+- `2+3=+4=` → 9; `2+3=` then `x²` → `sqr(5)` with preview 25; `2+3=` then `sin` → `sin(5`.
+- Keyboard digits/operators/dot/parens/Backspace/Escape perform the corresponding actions when the calculator is focused.
+- After `1/0=`, every control except AC is visibly disabled; AC/Escape recovers.
+- Result/error/mode/memory states have distinct accessible names and live-region announcements.
+- No cramped/clipped controls at ≤720px width or ≤640px height; the container scrolls.
+- Focus position clearly visible on the container and all controls.
+- `dotnet test` on Domain + SciCalc.Maui.UnitTests: 274/274 green (251 + 23).
+
+## Test cases
+ContinuationTests.cs (13): operator continuation (6 theory cases), `2+3=+4=` → 9, `×2=` → 10, square/sqrt/sin after `=`, percent after `=`, fresh-start value keys (5 theory cases), AC stale-answer guard, history-restore guard, memory-recall seeding + delete guard. Regression gate: remaining 238 domain tests + 23 presentation conformance tests.
+
+## Verdict
+Simple enough to implement from this high-level [****] alone — the full [****] workflow is NOT required (single-aggregate domain change plus presentation-only markup/CSS; no new classes, no API design). In this worktree the fix is already applied and verified; the remaining action is confirmation/merge of commit 26bb24e.
+
+---
+
 # High-Level [****]: SciCalc — 7 E2E defect fixes
 
 ## New Classes analysis (Domain-first / pre-condition search)
@@ -21,7 +74,7 @@ No new classes planned. Search results for hosts of the new behaviors:
 4. `Calculator/Presentation/SciCalc.Maui/Components/CalculatorPage.razor.css` - `.sr-only` helper; strong `:focus-visible` rings for the container and all controls; `overflow-y` scrolling on `.calc`; `@media` blocks for <=720px width (stacked memory, wrapped sci pad, taller history), <=640px height (compact display/keys/memory) and <=560px width.
 5. `Calculator/Presentation/SciCalc.Maui/README.md` - document continuation behavior, keyboard map, lockout UI, accessibility affordances.
 
-## Architecture check (/[****])
+## Architecture check ([****])
 Domain logic stays in the Domain layer (`Calculator` aggregate); the presentation layer keeps mapping physical keys to `InputKey` and rendering domain state - no calculation logic in UI, no UI types in Domain. Anti-procedural checklist passes: no domain logic added to presentation; behavior remains on the existing aggregate.
 
 ## Assumptions

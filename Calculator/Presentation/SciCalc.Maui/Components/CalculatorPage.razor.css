@@ -3,9 +3,11 @@
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    max-width: 860px;
+    max-width: 1000px;
+    height: 100%;
     margin: 0 auto;
-    padding: 12px;
+    padding: 16px;
+    box-sizing: border-box;
 }
 
 .calc-header {
@@ -84,17 +86,18 @@
 
 .memory {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .mem-group {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 5px;
     border: 1px solid #232838;
     border-radius: 10px;
-    padding: 8px;
+    padding: 6px;
     background: #12151f;
 }
 .mem-badge.on {
@@ -104,12 +107,14 @@
 }
 
 .mem-badge {
+    flex: 0 0 34px;
     font-size: 0.7rem;
     font-weight: 700;
-    color: #3d4459;
-    border: 1px solid #232838;
+    color: #7d8598;
+    border: 1px solid #2c3141;
     border-radius: 999px;
-    padding: 2px 8px;
+    padding: 2px 6px;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -117,26 +122,35 @@
 .calc-body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 250px;
+    grid-template-rows: 1fr;
     gap: 10px;
-    align-items: start;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
 }
 
 .keypad {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
 }
 
 .pad.sci {
     display: grid;
     gap: 6px;
-    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    flex: 0 0 auto;
+    min-height: 0;
 }
 
 .pad.main {
     display: grid;
     gap: 6px;
-    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(5, 1fr);
+    flex: 1;
+    min-height: 0;
 }
 
 .key {
@@ -148,6 +162,10 @@
     font-weight: 600;
     padding: 12px 4px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .key:active {
@@ -180,8 +198,14 @@
     color: #9ccaff;
 }
 
+.key.wide {
+    grid-column: span 2;
+}
+
 .key.mem {
-    font-size: 0.8rem;
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.75rem;
     font-weight: 600;
     padding: 8px 2px;
     background: #161a25;
@@ -192,6 +216,8 @@
     border-radius: 12px;
     background: #12151f;
     padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
 }
 
 .history-title {
@@ -212,7 +238,8 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 380px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 

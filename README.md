@@ -21,6 +21,28 @@ Features true OOP / Rich Domain Model architecture. ~2,000 LOC across 46 files w
 
 The application is under [`Calculator/`](Calculator/), built with .NET 10 MAUI Blazor Hybrid and xUnit. See the [SciCalc project guide](Calculator/Presentation/SciCalc.Maui/README.md) for its layout, verification commands, platform targets, behavior decisions, and MAUI workload caveat.
 
+![SciCalc app running on Windows](Calculator/SciCalc-app-screenshot.png)
+
+> **Note: MAUI desktop apps are not supported in the DigitalWorker Linux container.** SciCalc is a native MAUI Blazor Hybrid desktop app and requires a desktop OS (Windows or macOS) with MAUI workloads installed to build and run. The DigitalWorker prod container is headless Ubuntu and has no MAUI runtime, display server, or browser — it can verify the Domain layer (`dotnet test Calculator/SciCalc.slnx`) but cannot launch or screenshot the MAUI app. UI/layout work on SciCalc is performed on a local dev machine, not in the container.
+
+#### Running SciCalc locally
+
+Prerequisites: .NET 10 SDK and the MAUI workloads (`dotnet workload install maui`).
+
+**Windows** (primary dev/demo target):
+
+```bash
+dotnet run --project Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj -f net10.0-windows10.0.19041.0
+```
+
+**macOS** (MacCatalyst):
+
+```bash
+dotnet run --project Calculator/Presentation/SciCalc.Maui/SciCalc.Maui.csproj -f net10.0-maccatalyst
+```
+
+On a machine without the MAUI workloads, building the app project (or `SciCalc.App.slnx`) fails with `NETSDK1147` — this is expected. The Domain layer still verifies without workloads: `dotnet test Calculator/SciCalc.slnx`.
+
 - [`Calculator/SciCalc.slnx`](Calculator/SciCalc.slnx) — `SciCalc.Domain` + `SciCalc.Domain.UnitTests` only. Workload-free: verification needs no MAUI workloads.
 - [`Calculator/SciCalc.App.slnx`](Calculator/SciCalc.App.slnx) — adds the MAUI `SciCalc.Maui` app project and its packaging-conformance tests. Building it on a machine without the `maui` workloads fails with `NETSDK1147`.
 

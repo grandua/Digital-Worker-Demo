@@ -37,6 +37,15 @@
     <MauiSplashScreen Include="Resources\Splash\splash.svg" BaseSize="128,128" Color="#1e1e28" />
   </ItemGroup>
 
+  <!-- *.razor.css is claimed by the default MauiCss glob (**/*.css), and MAUI's
+       DefaultItems.targets removes **/*.css from @(None), so the Razor scoped-CSS
+       pipeline never sees it and no SciCalc.Maui.styles.css bundle is generated.
+       Release it from MauiCss and pass it to scoped CSS discovery via @(Content). -->
+  <ItemGroup>
+    <MauiCss Remove="**\*.razor.css" />
+    <Content Include="**\*.razor.css" Exclude="$(DefaultItemExcludes)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Domain\SciCalc.Domain\SciCalc.Domain.csproj" />
   </ItemGroup>

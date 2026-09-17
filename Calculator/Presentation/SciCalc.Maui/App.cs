@@ -2,5 +2,13 @@ namespace SciCalc;
 
 public class App : Application
 {
-    public App() => MainPage = new MainPage();
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        return new Window(new MainPage())
+        {
+            Title = "SciCalc",
+            Width = 1000,
+            Height = 780,
+        };
+    }
 }

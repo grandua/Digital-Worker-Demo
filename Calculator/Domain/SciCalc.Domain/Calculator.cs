@@ -208,6 +208,7 @@ public sealed class Calculator
         {
             AppendFunction(function);
             Buffer.Add(Token.Number(LastAnswer!.Value));
+            Buffer.Add(Token.CloseParen());
             return;
         }
         Buffer.Add(Token.Number(LastAnswer!.Value));

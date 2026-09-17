@@ -72,8 +72,58 @@ public class ContinuationTests
 
         calculator.Press(InputKey.Sin);
 
-        Assert.Equal("sin(5", calculator.Buffer.Text());
-        Assert.Null(calculator.Preview);
+        Assert.Equal("sin(5)", calculator.Buffer.Text());
+        AssertPreview(calculator, Math.Sin(5));
+        Assert.False(calculator.Locked);
+        Assert.Null(calculator.ActiveError);
+    }
+
+    [Theory]
+    [InlineData(InputKey.Cos, "cos(1)", 0.5403023058681398)]
+    [InlineData(InputKey.Tan, "tan(1)", 1.5574077246549023)]
+    [InlineData(InputKey.Asin, "asin(1)", 1.5707963267948966)]
+    [InlineData(InputKey.Acos, "acos(1)", 0.0)]
+    [InlineData(InputKey.Atan, "atan(1)", 0.7853981633974483)]
+    [InlineData(InputKey.Sinh, "sinh(1)", 1.1752011936438014)]
+    [InlineData(InputKey.Cosh, "cosh(1)", 1.5430806348152437)]
+    [InlineData(InputKey.Tanh, "tanh(1)", 0.7615941559557649)]
+    [InlineData(InputKey.Log10, "log(1)", 0.0)]
+    [InlineData(InputKey.Ln, "ln(1)", 0.0)]
+    public void PrefixFunctionAfterEqualsProducesCompleteCalculatedExpression(InputKey key, string expected, double expectedPreview)
+    {
+        Calculator calculator = new Calculator().PressAll("0.5+0.5=");
+
+        calculator.Press(key);
+
+        Assert.Equal(expected, calculator.Buffer.Text());
+        AssertPreview(calculator, expectedPreview);
+        Assert.False(calculator.Locked);
+        Assert.Null(calculator.ActiveError);
+    }
+
+    [Fact]
+    public void PrefixFunctionAfterEqualsThenEqualsCalculatesResult()
+    {
+        Calculator calculator = new Calculator().PressAll("2+3=");
+
+        calculator.Press(InputKey.Sin);
+        calculator.Press(InputKey.Eq);
+
+        Assert.Equal(Math.Sin(5), calculator.LastAnswer!.Value, precision: 10);
+        Assert.Equal(Math.Sin(5), calculator.Preview!.Value, precision: 10);
+        Assert.False(calculator.Locked);
+    }
+
+    [Fact]
+    public void PrefixFunctionSeededFromAnswerCanBeExtended()
+    {
+        Calculator calculator = new Calculator().PressAll("2+3=");
+
+        calculator.Press(InputKey.Sin);
+        calculator.PressAll("+1");
+
+        Assert.Equal("sin(5)+1", calculator.Buffer.Text());
+        AssertPreview(calculator, Math.Sin(5) + 1);
         Assert.False(calculator.Locked);
     }
 

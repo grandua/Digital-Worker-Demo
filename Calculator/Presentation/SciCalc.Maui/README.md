@@ -38,7 +38,7 @@ On a machine without workloads (e.g. the Linux sandbox), `dotnet build Presentat
 ## Behavior decisions
 
 - **ANS before the first evaluated answer inserts `0`** (deterministic; the ANS key is never a dead key).
-- **Operators and functions continue from the answer after `=`**: pressing `2 + 3 =` then an operator (`+ 4 =` → `9`) or a function (`x²` → `sqr(5)`, `sin` → `sin(5`) seeds the expression with the last result. Digits, decimals, parentheses and constants after `=` start a fresh expression; AC clears the continuation state so operators never resurrect a stale answer.
+- **Operators and functions continue from the answer after `=`**: pressing `2 + 3 =` then an operator (`+ 4 =` → `9`) or a function (`x²` → `sqr(5)`, `sin` → `sin(5)`) seeds the expression with the last result and closes the call for prefix functions, so a live preview is calculated immediately. Digits, decimals, parentheses and constants after `=` start a fresh expression; AC clears the continuation state so operators never resurrect a stale answer.
 - **Keyboard input**: when the calculator surface has focus, physical keys map to keys — digits, `.`/`,` (decimal), `+` `-` `*` (or `x`) `/` `^` `%` (operators), `m`/`M` (mod), `(` `)`, `=` (equals), `Backspace`/`Delete` (DEL), `Escape` (AC). With a keypad button focused, `Enter`/`Space` still activate that button and are not double-processed.
 - **Error lockout UI**: after an error every control except AC is disabled (visually dimmed) while the error is displayed; AC (or `Escape`) clears it.
 - History keeps the last 10 evaluations, newest first; tapping an entry restores its expression into the input buffer.

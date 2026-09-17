@@ -1,5 +1,69 @@
 ﻿# User Prompt
 
+Fix a defect in the Calculator (SciCalc) project: after pressing `=` (e.g. entering `2 + 3` and pressing `=`), pressing a prefix function like `sin` produces an incomplete expression `sin(5` with no preview calculated, instead of applying the function to the previous answer and producing a valid complete calculated result (expected: `sin(5)` with a calculated preview). Tasks: (1) Add unit tests covering `sin` and other prefix functions after `=`; (2) Ensure the tests verify that the resulting expression is complete, produces a preview, and does not leave the calculator in an error or incomplete state; (3) Fix the defect in the Domain Calculator seed/continuation logic. Key locations: Calculator/Domain/SciCalc.Domain/Calculator.cs (SeedAnswer/AppendFunction/ContinuesFromAnswer), Calculator/Domain/SciCalc.Domain.UnitTests/ContinuationTests.cs currently encodes the buggy behavior at lines 68-78. Verify with `dotnet test Calculator/SciCalc.slnx` (fallback on Linux without MAUI workloads: `dotnet test Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj`).
+
+# High-Level [****]: SciCalc — prefix function after `=` must seed a complete expression (`sin(5)`) with a live preview
+
+## Ground truth (verified in this worktree)
+- `Calculator/Domain/SciCalc.Domain/Calculator.cs`:
+  - `EvaluateEquals` (lines 188-195) evaluates, pushes history, clears the buffer, sets `seedPending = true`.
+  - `Press` (line 99) routes operator/function/percent keys to `SeedAnswer` when `seedPending` and the buffer is empty (`ContinuesFromAnswer`, lines 197-202).
+  - `SeedAnswer` (lines 204-215), prefix branch: `AppendFunction(function)` adds `Token.Function` + `Token.OpenParen`, then `Token.Number(LastAnswer)` is added — **no `Token.CloseParen()` is ever added**, leaving `sin(5`. The parser fails on the unbalanced call, so `LivePreview` (lines 229-233) returns null and `Preview` (lines 91-93) shows nothing. No error lockout occurs (the failure is swallowed by `LivePreview`), so the calculator sits in a silent incomplete state.
+  - The postfix-wrap path `WrapBufferInFunction` (lines 164-171) already appends `Token.CloseParen()` (produces `sqr(5)`) — the pattern the prefix branch must mirror.
+- `Calculator/Domain/SciCalc.Domain.UnitTests/ContinuationTests.cs` lines 68-78 (`PrefixFunctionAfterEqualsWrapsAnswer`) encode the bug: expects display `"sin(5"` and null preview. Must be updated to the correct behavior.
+- `Calculator/Presentation/SciCalc.Maui/README.md` line 41 documents the buggy `sin` → `sin(5` text — update to `sin(5)`.
+- Display names (InputBuffer.cs lines 20-30): prefix functions render as `sin cos tan asin acos atan sinh cosh tanh log ln`. Postfix-wrap set (`IsPostfixWrapKey`): square, cube, sqrt, cbrt, reciprocal, exp, tenpow, abs — already complete, unchanged. `Factorial` stays paren-free postfix, unchanged.
+
+## New Classes analysis (Domain-first / pre-condition search)
+No new classes. The behavior belongs to the existing `Calculator` aggregate, which already owns all session state involved (`Buffer`, `History`/`LastAnswer`, `seedPending`) and both seeding code paths (`SeedAnswer`, `AppendFunction`). `InputBuffer` rejected as host (token list mechanics, no answer/history knowledge — same reasoning as the previous continuation [****]). New Classes section is empty → CRC/class-design step skipped per workflow rule. Anti-procedural check passes: the fix is behavior completed on the aggregate, not a helper/service procedure.
+
+## Root cause
+`SeedAnswer`'s prefix-call branch builds `Function + OpenParen + Number(answer)` and stops. The unclosed paren makes the buffer a syntactically incomplete expression: `MathExpression.Evaluate` fails, `LivePreview` returns null, and the display shows `sin(5` with no preview — exactly the reported defect. Operators and postfix-wrap functions after `=` are unaffected (operators need no paren; wraps close theirs).
+
+## Changes
+<!-- TODO: Align the planned test names, seeded answer, and test-case list with ContinuationTests.cs; the implementation uses answer 1 for the 10-row theory and also adds an extension test. -->
+1. `Calculator/Domain/SciCalc.Domain/Calculator.cs` — in `SeedAnswer`, prefix branch: after adding `Token.Number(LastAnswer!.Value)`, add `Buffer.Add(Token.CloseParen())`. One-line behavioral change; no signature changes, no new members, no Long Parameter List concerns. `ContinuesFromAnswer`, `AppendFunction`, `EvaluateEquals`, `Preview` all unchanged — a complete buffer makes the existing preview pipeline work as-is.
+2. `Calculator/Domain/SciCalc.Domain.UnitTests/ContinuationTests.cs` (tests-first, red → green):
+   - Update `PrefixFunctionAfterEqualsWrapsAnswer` (lines 68-78): expect display `"sin(5)"`; non-null preview equal to `Math.Sin(5)` via existing `AssertPreview` (precision 10); `Assert.False(calculator.Locked)`; add `Assert.Null(calculator.ActiveError)`.
+   - New `[Theory]` `PrefixFunctionAfterEqualsProducesCompleteCalculatedExpression` (implemented): InlineData rows for the other 10 prefix keys (`Cos`, `Tan`, `Asin`, `Acos`, `Atan`, `Sinh`, `Cosh`, `Tanh`, `Log10`, `Ln`) seeded from answer `1` via `0.5+0.5=` (keeps asin/acos inside their domain) with expected texts (`cos(1)` … `log(1)`, `ln(1)`); assert complete display, non-null preview (precision 10), not Locked, ActiveError null.
+   - New `[Fact]` `PrefixFunctionAfterEqualsThenEqualsCalculatesResult` (implemented): `2+3=`, press `Sin`, press `=` → `LastAnswer == Math.Sin(5)`, `Locked` false — proves the seeded expression is complete enough to evaluate, not just preview.
+3. `Calculator/Presentation/SciCalc.Maui/README.md` line 41 — change the documented `sin` → `sin(5` example to `sin` → `sin(5)` (documentation consistency; no code change in the presentation layer).
+
+## Architecture check (/[****])
+Layer split respected: the behavioral fix is Domain-only (aggregate method), tests are Domain-only; the presentation layer gets a README text correction only — no UI logic, no UI types in Domain, no calculation logic outside the aggregate. Data flow unchanged: key press → `Calculator.Press` → buffer state → preview/render. RDM/PEAA: the rich domain model is preserved; no anemic DTO/service introduced.
+
+## Assumptions
+- "Complete expression" means balanced parens that parse: non-null `Preview` whose value is the function applied to `LastAnswer` ([****] angle mode radians).
+- `LastAnswer` is non-null whenever `seedPending` is true (set only by a successful `=`), so `LastAnswer!.Value` in `SeedAnswer` remains safe.
+- Postfix-wrap functions and `Factorial` behavior after `=` are already correct and serve as regression coverage.
+
+## Decisions / trade-offs
+- Close the paren at seed time (display truthfully shows `sin(5)`) rather than auto-closing inside the parser/preview: keeps `InputBuffer.Text()` WYSIWYG, history entries well-formed, and repeated `=` evaluation trivial. Auto-closing at evaluation was rejected — it hides the defect in the display and complicates further editing.
+- The seeded call is immediately complete; the user can extend it with operators (`sin(5)+…`) without needing to type `)`. Matches the existing postfix-wrap precedent (`sqr(5)`).
+
+## Scope
+- In: `SeedAnswer` prefix-branch fix; updated + new `ContinuationTests`; README line 41 text.
+- Out: repeated-`=` repeat-last-operation semantics, any other input behavior, MAUI app code changes, on-device verification.
+
+## Acceptance criteria
+- `2+3=` then `sin` → display `sin(5)`, preview ≈ `Math.Sin(5)` (−0.9589242746631385), `Locked` false, `ActiveError` null.
+- All 11 prefix functions after `=` produce complete `fn(5)` texts with correct non-null previews.
+- `2+3=`, `sin`, `=` → `LastAnswer == Math.Sin(5)`.
+- Full suite green: `dotnet test Calculator/SciCalc.slnx` (on this Linux box the MAUI projects may fail to build without workloads — expected; authoritative gate: `dotnet test Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj`, currently 251 tests + the new/updated ones).
+
+## Test cases
+- Updated: `PrefixFunctionAfterEqualsWrapsAnswer` (complete `sin(5)` + preview + no error state).
+- New theory: `PrefixFunctionAfterEqualsProducesCompleteCalculatedExpression` (10 rows covering every remaining prefix key, seeded from answer `1`).
+- New fact: `PrefixFunctionAfterEqualsThenEqualsCalculatesResult` (chained `=` evaluates the seeded call); plus `PrefixFunctionSeededFromAnswerCanBeExtended` (seeded call is extensible, e.g. `sin(5)+1`).
+- Regression gate: all other Domain tests (operators/postfix/percent/fresh-start/AC/history/memory continuation cases included) plus Maui conformance tests where runnable.
+
+## Verdict
+Simple enough to implement from this high-level [****] alone — a one-line domain fix on an existing aggregate plus unit tests and a doc line; no new classes, no API design, no layer changes. The full [****] workflow is NOT required.
+
+---
+
+# User Prompt
+
 Fix 7 end-to-end testing defects in SciCalc (see task card): (1) operators after `=` start from an empty expression and error; (2) scientific functions after `=` create invalid expressions; (3) no keyboard input; (4) error-lockout controls look active but do nothing; (5) results/errors/mode/memory lack accessible names and announcements; (6) layout breaks below ~720px width / short height; (7) keyboard focus is hard to see.
 
 # High-Level [****]: SciCalc — Fix 7 E2E Defects (continuation, keyboard, lockout, accessibility, responsive layout, focus)
@@ -21,7 +85,7 @@ No new classes. Searched `Calculator/Domain/SciCalc.Domain` (*.cs) and the prese
 - Issue 6: narrow/short layout → `overflow-y:auto` on `.calc`; media queries ≤900px, ≤720px (single-column body, wrapping sci pad, stacked memory, min-height history), ≤560px, and ≤640px height (compact display/keys/memory).
 - Issue 7: focus visibility → `:focus-visible` rings on the `.calc` container and every control (3px outline + halo).
 
-## Architecture check (/[****])
+## Architecture check ([****])
 Layer split respected: domain behavior (continuation seeding, lockout rules) lives in the Domain layer aggregate; the presentation layer only maps physical keys to `InputKey` and renders/announces domain state. No UI types in Domain, no calculation logic in the component. Physical components and flow: SciCalc.Maui Blazor component (DI singleton `Calculator`) → `Calculator.Press(InputKey)` → domain state (Buffer/History/ActiveError) → re-render + aria announcements. Data flow only; control flow unchanged.
 
 ## Assumptions
@@ -497,4 +561,3 @@ The README-described scratch Razor harness (plain `net10.0` SDK, `FrameworkRefer
 - Optional manual check on a workload machine (out of sandbox scope): `dotnet build SciCalc.App.sln` succeeds.
 
 ---
-

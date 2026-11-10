@@ -18,8 +18,6 @@ public sealed class SourceTree(string root)
             .OfType<SourceFile>()
             .ToList();
 
-    // A file that cannot be read (permissions, locks) is skipped, like the inaccessible entries discovery skips.
-    //TODO: Framework Design -- Exceptions: split the filter into two typed catch clauses (IOException, UnauthorizedAccessException) instead of catching System.Exception.
     private SourceFile? TryRead(string path)
     {
         try

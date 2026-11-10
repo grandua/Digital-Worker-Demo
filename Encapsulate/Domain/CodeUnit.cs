@@ -14,21 +14,21 @@ public sealed class CodeUnit(SemanticModel model, SyntaxNode scope)
     {
         string path = scope.SyntaxTree.FilePath;
         var collector = new AccessCollector();
-        foreach (IOperation operation in RootOperations())
+        foreach (IOperation operation in RootOperations)
         {
             collector.Visit(operation);
         }
         return collector.ReportFindings(path);
     }
 
-    private IEnumerable<IOperation> RootOperations() => scope switch
+    private IEnumerable<IOperation> RootOperations => scope switch
     {
         CompilationUnitSyntax unit => unit.Members.OfType<GlobalStatementSyntax>().Select(node => model.GetOperation(node.Statement)).OfType<IOperation>(),
         _ => SingleOperation(model.GetOperation(InitializerExpression(scope) ?? scope)),
     };
 
     private IEnumerable<IOperation> SingleOperation(IOperation? operation) =>
-        operation is null ? [] : [BodyOf(operation)];
+        operation is null ? [] : [Body(operation)];
 
     private ExpressionSyntax? InitializerExpression(SyntaxNode node) => node switch
     {
@@ -38,11 +38,12 @@ public sealed class CodeUnit(SemanticModel model, SyntaxNode scope)
         _ => null,
     };
 
-    private IOperation BodyOf(IOperation operation) =>
+    private IOperation Body(IOperation operation) =>
         operation is ILocalFunctionOperation local && local.Body is { } body ? body : operation;
 
     private sealed class AccessCollector : OperationWalker
     {
+        // Visitor accumulator: mutable by design and confined to this collector instance.
         private readonly List<MemberAccess> accesses = [];
         private readonly List<CallSite> callSites = [];
 

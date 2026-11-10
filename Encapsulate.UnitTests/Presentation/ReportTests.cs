@@ -18,7 +18,7 @@ public class ReportTests
         var lines = new Report(findings).Render();
 
         Assert.Equal(
-            ["a.cs", "  Feature Envy (2, 9)", "  Primitive Obsession (5, 1)", "b.cs", "  Feature Envy (2, 3)"],
+            ["a.cs:", "  Feature Envy (2, 9)", "  Primitive Obsession (5, 1)", "b.cs:", "  Feature Envy (2, 3)"],
             lines);
     }
 
@@ -29,7 +29,7 @@ public class ReportTests
 
         var lines = new Report([finding, finding]).Render();
 
-        Assert.Equal(["a.cs", "  Feature Envy (4, 7)"], lines);
+        Assert.Equal(["a.cs:", "  Feature Envy (4, 7)"], lines);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class ReportTests
 
         var lines = new Report(findings).Render();
 
-        Assert.Equal(["a.cs", "  Feature Envy (3, 1)", "  Primitive Obsession (3, 1)"], lines);
+        Assert.Equal(["a.cs:", "  Feature Envy (3, 1)", "  Primitive Obsession (3, 1)"], lines);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class ReportTests
 
         var headers = new Report(findings).Render().Where(line => !line.StartsWith(' ')).ToList();
 
-        Assert.Equal(["B.cs", "a.cs"], headers);
+        Assert.Equal(["B.cs:", "a.cs:"], headers);
     }
 
     [Fact]

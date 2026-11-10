@@ -20,13 +20,15 @@ public sealed class ProgramTests : IDisposable
         return full;
     }
 
-    private (int Exit, string Output, string Error) Run(params string[] args)
+    private RunResult Run(params string[] args)
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
         int exit = new Program().Run(args, output, error);
-        return (exit, output.ToString(), error.ToString());
+        return new RunResult(exit, output.ToString(), error.ToString());
     }
+
+    private sealed record RunResult(int Exit, string Output, string Error);
 
     [Fact]
     public void FileArgumentPrintsHeaderAndSmellLineWithExitZero()
@@ -36,7 +38,7 @@ public sealed class ProgramTests : IDisposable
         var result = Run(file);
 
         Assert.Equal(0, result.Exit);
-        Assert.Equal("Smelly.cs\n  Feature Envy (6, 17)\n", result.Output);
+        Assert.Equal("Smelly.cs:\n  Feature Envy (6, 17)\n", result.Output);
     }
 
     [Fact]
@@ -48,7 +50,7 @@ public sealed class ProgramTests : IDisposable
         var result = Run(root);
 
         Assert.Equal(0, result.Exit);
-        Assert.Equal("dirty/Smelly.cs\n  Feature Envy (6, 17)\n", result.Output);
+        Assert.Equal("dirty/Smelly.cs:\n  Feature Envy (6, 17)\n", result.Output);
     }
 
     [Fact]
@@ -58,7 +60,9 @@ public sealed class ProgramTests : IDisposable
 
         var result = Run(file);
 
-        Assert.Equal((0, string.Empty, string.Empty), (result.Exit, result.Output, result.Error));
+        Assert.Equal(0, result.Exit);
+        Assert.Empty(result.Output);
+        Assert.Empty(result.Error);
     }
 
     [Fact]
@@ -68,7 +72,9 @@ public sealed class ProgramTests : IDisposable
 
         var result = Run(file);
 
-        Assert.Equal((0, string.Empty, string.Empty), (result.Exit, result.Output, result.Error));
+        Assert.Equal(0, result.Exit);
+        Assert.Empty(result.Output);
+        Assert.Empty(result.Error);
     }
 
     [Fact]
@@ -97,5 +103,20 @@ public sealed class ProgramTests : IDisposable
 
         Assert.Equal(0, result.Exit);
         Assert.Empty(result.Error);
+    }
+
+    [Fact]
+    public void OutputUsesInvariantLineFeedsEvenForCrlfWriters()
+    {
+        string file = WriteFile("Smelly.cs", SmellyClass);
+        using var output = new StringWriter();
+        output.NewLine = "\r\n";
+        using var error = new StringWriter();
+
+        int exit = new Program().Run([file], output, error);
+
+        Assert.Equal(0, exit);
+        Assert.Equal("Smelly.cs:\n  Feature Envy (6, 17)\n", output.ToString());
+        Assert.DoesNotContain('\r', output.ToString());
     }
 }

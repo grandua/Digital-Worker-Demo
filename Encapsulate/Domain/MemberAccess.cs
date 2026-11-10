@@ -19,8 +19,17 @@ public sealed class MemberAccess(IOperation operation)
         _ => false,
     };
 
-    private bool IsInsideNameOf => Member.Syntax.Ancestors().OfType<InvocationExpressionSyntax>()
-        .Any(call => call.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" });
+    private bool IsInsideNameOf
+    {
+        get
+        {
+            for (IOperation? current = Member; current is not null; current = current.Parent)
+            {
+                if (current is INameOfOperation) return true;
+            }
+            return false;
+        }
+    }
 
     public string ReceiverKey => ReceiverKeyOf(Member);
 
@@ -44,17 +53,17 @@ public sealed class MemberAccess(IOperation operation)
     private string ReceiverKeyOf(IMemberReferenceOperation member) => member.Instance switch
     {
         IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance } self => ContainingInstanceKey(self),
-        IConditionalAccessInstanceOperation => NormalizedText(ConditionalOf(member).Operation.Syntax),
+        IConditionalAccessInstanceOperation => NormalizedTextOf(ConditionalOf(member).Operation.Syntax),
         IMemberReferenceOperation instance => ExpressionKey(instance),
-        _ => NormalizedText(member.Instance!.Syntax),
+        _ => NormalizedTextOf(member.Instance!.Syntax),
     };
 
     private string ExpressionKey(IMemberReferenceOperation member) => member switch
     {
-        IPropertyReferenceOperation { Property.IsIndexer: true } => NormalizedText(member.Syntax),
+        IPropertyReferenceOperation { Property.IsIndexer: true } => NormalizedTextOf(member.Syntax),
         _ when member.Instance is IConditionalAccessInstanceOperation => $"{ReceiverKeyOf(member)}?.{member.Member.Name}",
         _ when IsConditionalBinding(member.Syntax) => $"{ReceiverKeyOf(member)}.{member.Member.Name}",
-        _ => NormalizedText(member.Syntax),
+        _ => NormalizedTextOf(member.Syntax),
     };
 
     private SyntaxNode ExpressionStart(IMemberReferenceOperation member) =>
@@ -62,7 +71,7 @@ public sealed class MemberAccess(IOperation operation)
             ? ConditionalOf(member).Operation.Syntax
             : member.Syntax;
 
-    private static bool IsConditionalBinding(SyntaxNode node) => node switch
+    private bool IsConditionalBinding(SyntaxNode node) => node switch
     {
         MemberBindingExpressionSyntax => true,
         MemberAccessExpressionSyntax access => IsConditionalBinding(access.Expression),
@@ -73,9 +82,9 @@ public sealed class MemberAccess(IOperation operation)
 
     private IConditionalAccessOperation EnclosingConditionalAccess() => ConditionalOf(Member);
 
-    private IConditionalAccessOperation ConditionalOf(IOperation operation)
+    private IConditionalAccessOperation ConditionalOf(IOperation owner)
     {
-        IOperation current = operation;
+        IOperation current = owner;
         while (current is not IConditionalAccessOperation)
         {
             current = current.Parent ?? throw new InvalidOperationException("Conditional access instance outside a conditional access.");
@@ -83,14 +92,14 @@ public sealed class MemberAccess(IOperation operation)
         return (IConditionalAccessOperation)current;
     }
 
-    private string NormalizedText(SyntaxNode node) => node switch
+    private string NormalizedTextOf(SyntaxNode node) => node switch
     {
-        ParenthesizedExpressionSyntax parenthesized => NormalizedText(parenthesized.Expression),
-        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } forgiven => NormalizedText(forgiven.Operand),
-        MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ownMember => TokenText(ownMember.Name),
-        MemberAccessExpressionSyntax member => $"{NormalizedText(member.Expression)}.{TokenText(member.Name)}",
-        _ => TokenText(node),
+        ParenthesizedExpressionSyntax parenthesized => NormalizedTextOf(parenthesized.Expression),
+        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } forgiven => NormalizedTextOf(forgiven.Operand),
+        MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ownMember => TokenTextOf(ownMember.Name),
+        MemberAccessExpressionSyntax member => $"{NormalizedTextOf(member.Expression)}.{TokenTextOf(member.Name)}",
+        _ => TokenTextOf(node),
     };
 
-    private string TokenText(SyntaxNode node) => string.Concat(node.DescendantTokens().Select(token => token.Text));
+    private string TokenTextOf(SyntaxNode node) => string.Concat(node.DescendantTokens().Select(token => token.Text));
 }

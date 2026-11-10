@@ -42,6 +42,7 @@ public class PrimitiveObsessionRuleTests
     [InlineData("Pair q = new(o.Total, o.Tax);", 1)]
     [InlineData("var q = new Order(o.Total, o.Tax);", 1)]
     [InlineData("var q = new Order(o.Total, p.Total);", 0)]
+    [InlineData("Util.Take(nameof(o.Total), nameof(o.Tax));", 0)]
     public void CountsSeparateArgumentsSharingAReceiver(string body, int expected)
     {
         var findings = Analysis.ScanMethod(body);
@@ -75,6 +76,26 @@ public class PrimitiveObsessionRuleTests
         var findings = Analysis.OfKind(Analysis.Scan(source), SmellFinding.PrimitiveObsession);
 
         Assert.Equal([Analysis.Locate(source, "o.Tax", SmellFinding.PrimitiveObsession)], findings);
+    }
+
+    [Fact]
+    public void CastArgumentsReportAtTheCastStart()
+    {
+        string source = Analysis.Method("Util.TakeL((long)o.Total, (long)o.Tax);");
+
+        var findings = Analysis.OfKind(Analysis.Scan(source), SmellFinding.PrimitiveObsession);
+
+        Assert.Equal([Analysis.Locate(source, "(long)o.Total", SmellFinding.PrimitiveObsession)], findings);
+    }
+
+    [Fact]
+    public void ParenthesizedArgumentsReportAtTheParenthesisStart()
+    {
+        string source = Analysis.Method("Util.Take((o.Total), o.Tax);");
+
+        var findings = Analysis.OfKind(Analysis.Scan(source), SmellFinding.PrimitiveObsession);
+
+        Assert.Equal([Analysis.Locate(source, "(o.Total)", SmellFinding.PrimitiveObsession)], findings);
     }
 
     [Fact]

@@ -12,7 +12,7 @@ public sealed class Report(IReadOnlyList<SmellFinding> findings)
         .ThenBy(finding => finding.Column)
         .ThenBy(finding => finding.Kind, StringComparer.Ordinal)
         .GroupBy(finding => finding.FilePath)
-        .SelectMany(group => new[] { group.Key }.Concat(group.Select(FormatLine)))
+        .SelectMany(group => new[] { $"{group.Key}:" }.Concat(group.Select(FormatLine)))
         .ToList();
 
     private string FormatLine(SmellFinding finding) =>

@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Encapsulate.Domain;
 
@@ -11,19 +12,23 @@ namespace Encapsulate.Domain;
 /// </summary>
 public sealed class CallSite(IEnumerable<IArgumentOperation> arguments)
 {
-    private IReadOnlyList<MemberAccess> CountedArguments => arguments
-        .Where(IsSeparateArgument)
-        .SelectMany(ValueOperations)
-        .Select(value => new MemberAccess(Unwrap(value)))
-        .Where(access => access.IsCountable)
+    public IReadOnlyList<SmellFinding> CollectFindings(string path) => CountedArguments()
+        .GroupBy(counted => counted.Access.ReceiverKey)
+        .Where(group => group.Count() >= 2)
+        .Select(group => Finding(group, path))
         .ToList();
 
-    public IReadOnlyList<SmellFinding> CollectFindings(string path) => CountedArguments
-        .GroupBy(access => access.ReceiverKey)
-        .Select(group => new Receiver(group.Key, group))
-        .Where(receiver => receiver.HasRepeatedAccess)
-        .Select(receiver => receiver.CreateFinding(path, SmellFinding.PrimitiveObsession))
-        .ToList();
+    private IEnumerable<Counted> CountedArguments() => arguments
+        .Where(IsSeparateArgument)
+        .SelectMany(ValuesOf)
+        .Select(value => new Counted(Unwrap(value), value))
+        .Where(counted => counted.Access.IsCountable);
+
+    private SmellFinding Finding(IGrouping<string, Counted> group, string path)
+    {
+        Counted first = group.Aggregate((earliest, next) => next.Start.CompareTo(earliest.Start) < 0 ? next : earliest);
+        return new SmellFinding(path, first.Start.Line + 1, first.Start.Character + 1, SmellFinding.PrimitiveObsession);
+    }
 
     private bool IsSeparateArgument(IArgumentOperation argument) =>
         argument.ArgumentKind is not ArgumentKind.DefaultValue
@@ -35,12 +40,12 @@ public sealed class CallSite(IEnumerable<IArgumentOperation> arguments)
     private bool IsWrittenArgument(SyntaxNode syntax) =>
         syntax is ArgumentSyntax || syntax.Ancestors().SkipWhile(node => node is ParenthesizedExpressionSyntax).FirstOrDefault() is ArgumentSyntax;
 
-    private IEnumerable<IOperation> ValueOperations(IArgumentOperation argument) =>
+    private IEnumerable<IOperation> ValuesOf(IArgumentOperation argument) =>
         IsExpandedParams(argument)
-            ? ExpandedElements(Unwrap(argument.Value))
+            ? ExpandedElementsOf(Unwrap(argument.Value))
             : [argument.Value];
 
-    private IEnumerable<IOperation> ExpandedElements(IOperation value) => value switch
+    private IEnumerable<IOperation> ExpandedElementsOf(IOperation value) => value switch
     {
         IArrayCreationOperation { Initializer: not null } array => array.Initializer!.ElementValues,
         ICollectionExpressionOperation collection => collection.Elements,
@@ -54,4 +59,28 @@ public sealed class CallSite(IEnumerable<IArgumentOperation> arguments)
         IConditionalAccessOperation { WhenNotNull: not null } conditional => Unwrap(conditional.WhenNotNull),
         _ => value,
     };
+
+    /// <summary>
+    /// One countable argument: the unwrapped member classifies the receiver, while the position
+    /// reports at the start of the original argument value (plan R15), before casts and parentheses.
+    /// </summary>
+    private sealed class Counted(IOperation member, IOperation value)
+    {
+        public MemberAccess Access { get; } = new(member);
+
+        public LinePosition Start => Origin.GetLocation().GetLineSpan().StartLinePosition;
+
+        private SyntaxNode Origin
+        {
+            get
+            {
+                SyntaxNode current = value.Syntax;
+                while (current.Parent is ParenthesizedExpressionSyntax outermost)
+                {
+                    current = outermost;
+                }
+                return current;
+            }
+        }
+    }
 }

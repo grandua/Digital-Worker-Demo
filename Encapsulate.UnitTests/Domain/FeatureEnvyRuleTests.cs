@@ -37,6 +37,29 @@ public class FeatureEnvyRuleTests
     }
 
     [Fact]
+    public void EscapedMethodNamedNameofDoesNotSuppressAccesses()
+    {
+        string source = """
+            public class Target
+            {
+                public void M(Order o)
+                {
+                    var a = Ops.@nameof(o.Total, o.Tax);
+                }
+            }
+            public static class Ops
+            {
+                public static int @nameof(int a, int b) => a;
+            }
+            """;
+
+        var findings = Analysis.Scan(source);
+
+        Assert.Single(Analysis.OfKind(findings, SmellFinding.FeatureEnvy));
+        Assert.Single(Analysis.OfKind(findings, SmellFinding.PrimitiveObsession));
+    }
+
+    [Fact]
     public void ReportsFirstReceiverAccessPosition()
     {
         string source = Analysis.Method("var a = o.Total + o.Tax;");

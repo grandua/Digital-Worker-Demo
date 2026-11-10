@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Encapsulate/Encapsulate.csproj" />
+  <Project Path="Encapsulate.UnitTests/Encapsulate.UnitTests.csproj" />
+</Solution>

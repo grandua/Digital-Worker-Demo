@@ -1,0 +1,658 @@
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.6.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "results": [
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'accesses' does not match rule 'Instance fields (private)'. Suggested name is '_accesses'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/CodeUnit.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 45,
+                  "endLine": 80,
+                  "endColumn": 53,
+                  "charOffset": 3762,
+                  "charLength": 8
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "4A297295417FA12D518A6D89EAC14869C801BD6692A2913C7F03766D55551A22"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'analysis' does not match rule 'Instance fields (private)'. Suggested name is '_analysis'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate.UnitTests/Domain/AnalysisUnitTests.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 1
+                },
+                "region": {
+                  "startLine": 8,
+                  "startColumn": 31,
+                  "endLine": 8,
+                  "endColumn": 39,
+                  "charOffset": 168,
+                  "charLength": 8
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "EE131AA15E63B204A7353C8504A5A7A64BFDC7193E3E9C0133AA7C07183437BA"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'analysis' does not match rule 'Instance fields (private)'. Suggested name is '_analysis'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate.UnitTests/Domain/FeatureEnvyRuleTests.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 2
+                },
+                "region": {
+                  "startLine": 8,
+                  "startColumn": 31,
+                  "endLine": 8,
+                  "endColumn": 39,
+                  "charOffset": 171,
+                  "charLength": 8
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "EE131AA15E63B204A7353C8504A5A7A64BFDC7193E3E9C0133AA7C07183437BA"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'analysis' does not match rule 'Instance fields (private)'. Suggested name is '_analysis'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate.UnitTests/Domain/PrimitiveObsessionRuleTests.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 8,
+                  "startColumn": 31,
+                  "endLine": 8,
+                  "endColumn": 39,
+                  "charOffset": 178,
+                  "charLength": 8
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "EE131AA15E63B204A7353C8504A5A7A64BFDC7193E3E9C0133AA7C07183437BA"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'callSites' does not match rule 'Instance fields (private)'. Suggested name is '_callSites'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/CodeUnit.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 81,
+                  "startColumn": 41,
+                  "endLine": 81,
+                  "endColumn": 50,
+                  "charOffset": 3817,
+                  "charLength": 9
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "86BED51539E83BC97AB1CEE799435338F77389944704B54A20445E7CC4B76999"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'compilation' does not match rule 'Instance fields (private)'. Suggested name is '_compilation'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/Codebase.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 4
+                },
+                "region": {
+                  "startLine": 26,
+                  "startColumn": 40,
+                  "endLine": 26,
+                  "endColumn": 51,
+                  "charOffset": 940,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "220379495483AA93EDE659ACC7DE129E9272B2AF34965AFBE1E4A67899E5A790"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'occurrences' does not match rule 'Instance fields (private)'. Suggested name is '_occurrences'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Domain/Receiver.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 52,
+                  "endLine": 15,
+                  "endColumn": 63,
+                  "charOffset": 724,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "B7056C9F2212C037A5C4B735E114D975FECCF30BD831E068FD99E4F34F36C43B"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'owner' does not match rule 'Instance fields (private)'. Suggested name is '_owner'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/CallSite.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 6
+                },
+                "region": {
+                  "startLine": 98,
+                  "startColumn": 35,
+                  "endLine": 98,
+                  "endColumn": 40,
+                  "charOffset": 4595,
+                  "charLength": 5
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "272AECD2A6C9567A4BF8B29DD252895D22A4FD5B1643D892CB1C19D919A27A2D"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'parseOptions' does not match rule 'Instance fields (private)'. Suggested name is '_parseOptions'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/Codebase.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 4
+                },
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 41,
+                  "endLine": 24,
+                  "endColumn": 53,
+                  "charOffset": 795,
+                  "charLength": 12
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "026FC32FB44F674336E4B45C04E69F86C33FEC139FA46BFC6B8A05360AB40656"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'repositoryRoot' does not match rule 'Instance fields (private)'. Suggested name is '_repositoryRoot'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate.UnitTests/Integration/CorpusRegressionTests.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 7
+                },
+                "region": {
+                  "startLine": 13,
+                  "startColumn": 29,
+                  "endLine": 13,
+                  "endColumn": 43,
+                  "charOffset": 546,
+                  "charLength": 14
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "EAC6D5A53A88B703502F78EC37780E879850704C644F7635BD95DCE034073E70"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'root' does not match rule 'Instance fields (private)'. Suggested name is '_root'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate.UnitTests/Support/TempDirectoryTests.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 29,
+                  "endLine": 6,
+                  "endColumn": 33,
+                  "charOffset": 227,
+                  "charLength": 4
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "FB5B76472DC55A60E73CF94149840659CD3F0A1798A9048D875D984A325C72A2"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Name 'sourceTrees' does not match rule 'Instance fields (private)'. Suggested name is '_sourceTrees'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Encapsulate/Data/Codebase.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 4
+                },
+                "region": {
+                  "startLine": 25,
+                  "startColumn": 48,
+                  "endLine": 25,
+                  "endColumn": 59,
+                  "charOffset": 888,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "B1F463D91DA506F260E7A648153AD0996EB79269A039F96697F088FAA50CB375"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "InspectCode",
+          "organization": "JetBrains, Inc",
+          "fullName": "JetBrains Inspect Code 2026.1.2",
+          "semanticVersion": "261.0.20260519.64707",
+          "informationUri": "http://www.jetbrains.com/resharper/features/command-line.html",
+          "rules": [
+            {
+              "id": "InconsistentNaming",
+              "fullDescription": {
+                "text": "Name doesn't match naming style defined for this kind of symbol"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/InconsistentNaming.html"
+              },
+              "shortDescription": {
+                "text": "Inconsistent Naming"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/InconsistentNaming.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "XAML.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            }
+          ],
+          "taxa": [
+            {
+              "id": "CSHARP",
+              "name": "C#"
+            },
+            {
+              "id": "CSHARP.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "VBASIC",
+              "name": "VB.NET"
+            },
+            {
+              "id": "VBASIC.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "VBASIC",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "XAML",
+              "name": "XAML"
+            },
+            {
+              "id": "XAML.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "XAML",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "versionControlProvenance": [
+        {
+          "repositoryUri": "https://github.com/grandua/Digital-Worker-Demo.git",
+          "revisionId": "a28d8afe5c97304776ec94a5191370ebeae5bdc4",
+          "branch": "feature-card-issue-1237211400-27-20261110233533466",
+          "mappedTo": {
+            "uriBaseId": "solutionDir"
+          }
+        }
+      ],
+      "originalUriBaseIds": {
+        "solutionDir": {
+          "uri": "file:///workdir/.DigitalWorker/worktrees/feature-card-issue-1237211400-27-20261110233533466/",
+          "description": {
+            "text": "Solution Directory"
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "Encapsulate/Data/CodeUnit.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "94AF9CA0EB143C55C32E9E853D02EDE3",
+            "sha-1": "A7AFA5B85F6319EB10276534F72484473C55CE05",
+            "sha-256": "B7BFB491FFFD79659FE830DE6AA9920B98C9DDF646675CF7CA9BBD40FCC64E5C"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate.UnitTests/Domain/AnalysisUnitTests.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "6F6164379A12E548D186C2A701B711B3",
+            "sha-1": "252F0E6A385A0F72E808A434C4145920C45C4A07",
+            "sha-256": "38EEB98C52FF5AD3B53EAE1A9A3E4C9953EA9FE8F469E7C137449BE788847277"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate.UnitTests/Domain/FeatureEnvyRuleTests.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "F69C0E60C6BB19B8D6EC77BC4E5E864A",
+            "sha-1": "FD44A1EF7A83D7D9A0EBE76157E4572C9BEBDDBA",
+            "sha-256": "75369113B7C8C9D60E21800FFBCA270D178FB0D82572C4BBA00789C821B43330"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate.UnitTests/Domain/PrimitiveObsessionRuleTests.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "07C2D5796C3508A30CF6C3FEA097225E",
+            "sha-1": "F26EDC5661B4BABF8B1F016FBB11031492AAC35D",
+            "sha-256": "F267BF77A1EC21EDC2463F052CDB9B5DA30318B7EA5A80C51780875404421D49"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate/Data/Codebase.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "98B98AFB92AB4017B3DEFAD968BAE085",
+            "sha-1": "BA399903368A530464A5EB989FBECF2CC13AB4BB",
+            "sha-256": "78DCBAEBF10B49C54BC8BEF22A46C31A253E70153DC62AD23B79B591340CACCE"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate/Domain/Receiver.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "747258EF4C01E44118095F2D88737C7A",
+            "sha-1": "15F296242B4D811B9A0C782ADFAA0FA9CCE628A8",
+            "sha-256": "BE073F48EE002ACE8E4D86444586050ED1D3E603C036724ED18F504FFC53350A"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate/Data/CallSite.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "755652A867103A0E5314445CB6E3C8DB",
+            "sha-1": "CD8E8A51F89EBD74A289A1C492A6F74A76A1D7F7",
+            "sha-256": "CFD46536353AAE00C5A8F56A48CB3BC41928E478282997A3959E21E178ED68A8"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate.UnitTests/Integration/CorpusRegressionTests.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "4423FD34BFC835E46AB149178BD6989D",
+            "sha-1": "01776F7530F6FAEE0C849CDD8CD3E925F0C0DC0B",
+            "sha-256": "1A8295EC09F625952D566B9660A4E2A26B19CDB480956B8EF653B97D6394889B"
+          }
+        },
+        {
+          "location": {
+            "uri": "Encapsulate.UnitTests/Support/TempDirectoryTests.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "DADDAA0C1859A60EC5CCF8F2D6476AB9",
+            "sha-1": "8D6093148E44118EDB7074C7BC85F89A75A2BE46",
+            "sha-256": "DFA643191A8975D9812E6A187C8CC651BE2BD96DADE4EE4DFEED7AB9DD95E211"
+          }
+        }
+      ],
+      "columnKind": "utf16CodeUnits"
+    }
+  ]
+}

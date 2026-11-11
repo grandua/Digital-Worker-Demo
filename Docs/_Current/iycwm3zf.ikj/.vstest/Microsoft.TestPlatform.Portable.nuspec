@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Microsoft.TestPlatform.Portable</id>
+    <version>18.11.0</version>
+    <authors>Microsoft</authors>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <license type="file">LICENSE_VS.txt</license>
+    <licenseUrl>https://aka.ms/deprecateLicenseUrl</licenseUrl>
+    <icon>Icon.png</icon>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/microsoft/vstest</projectUrl>
+    <description>This package contains a subset of binaries for the Visual Studio Test Platform (vstest).
+      Vstest provides a modern, cross platform testing engine that also powers the testing on .NET Core.
+      Supports the following popular test frameworks: MSTest v2, xUnit and Nunit with support for extensibility.
+
+      Visit https://github.com/microsoft/vstest to know more about vstest platform.
+      For running tests based on the MSTest v1 framework, .orderedtest, .webtest and .generictest please use Microsoft.TestPlatform package.</description>
+    <copyright>© Microsoft Corporation. All rights reserved.</copyright>
+    <tags>vstest visual-studio unittest testplatform mstest microsoft test testing</tags>
+    <serviceable>true</serviceable>
+    <repository type="git" url="https://github.com/microsoft/vstest" branch="18.11" commit="36206450d47fec22e281ba9846445edc796f5080" />
+    <frameworkAssemblies>
+      <frameworkAssembly assemblyName="System.Runtime.InteropServices.RuntimeInformation" targetFramework=".NETFramework4.7.1, .NETFramework4.7.2, .NETFramework4.8, .NETFramework4.8.1" />
+    </frameworkAssemblies>
+  </metadata>
+</package>

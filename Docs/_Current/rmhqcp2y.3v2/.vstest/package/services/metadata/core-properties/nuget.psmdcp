@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
+  <dc:creator>Microsoft</dc:creator>
+  <dc:description>This package contains a subset of binaries for the Visual Studio Test Platform (vstest).
+      Vstest provides a modern, cross platform testing engine that also powers the testing on .NET Core.
+      Supports the following popular test frameworks: MSTest v2, xUnit and Nunit with support for extensibility.
+
+      Visit https://github.com/microsoft/vstest to know more about vstest platform.
+      For running tests based on the MSTest v1 framework, .orderedtest, .webtest and .generictest please use Microsoft.TestPlatform package.</dc:description>
+  <dc:identifier>Microsoft.TestPlatform.Portable</dc:identifier>
+  <version>18.11.0</version>
+  <keywords>vstest visual-studio unittest testplatform mstest microsoft test testing</keywords>
+  <lastModifiedBy>NuGet.Packaging, Version=7.9.0.36018, Culture=neutral, PublicKeyToken=31bf3856ad364e35;Microsoft Windows NT 10.0.26100.0;.NET Framework 4.7.2</lastModifiedBy>
+</coreProperties>

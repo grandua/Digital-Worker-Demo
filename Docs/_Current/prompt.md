@@ -1,4 +1,121 @@
-﻿# User Prompt
+# User Prompt
+
+Plan/design/implement/test `encapsulate`: a zero-config .NET 10 C# console app. Optional positional file/directory argument; omitted means CWD; directories are scanned recursively for `.cs` files. Deterministically detect **Feature Envy** (>= 2 field/property access occurrences on the same external receiver in a method or compound expression; exclude `this`/`base`) and **Primitive Obsession** (>= 2 separate arguments of one invocation or constructor that are fields/properties of the same receiver). Output grouped by file: one header per file, then one line per smell with its 1-based (line, column). Research: `Docs/_Current/context.md` (the authoritative clarification at its top takes precedence).
+
+---
+
+# High-Level Plan: `encapsulate` smell detector (revised)
+
+**Status: PLAN ONLY.** No code, no git writes, no files outside the workspace. Writes are limited to `Docs/_Current/`.
+
+**Approval:** no open question blocks planning any more. The clarified requirements in `context.md` answer the previous Q1-Q11. The only remaining gate is an explicit human go-ahead on this plan before implementation starts. That is a go/no-go, not a set of questions. After review it is a go/no-go plus confirmation of decisions C2-C4 in §7a.
+
+## 1. Objective
+A zero-config .NET 10 C# CLI `encapsulate [path]`. No path means CWD. A directory is scanned recursively for `*.cs`. A file argument is scanned directly. It reports Feature Envy (FE) and Primitive Obsession (PO) with 1-based (line, column), grouped by file.
+
+## 2. Scope
+- In: `.cs` sources only; the two rules below; zero flags, zero config, zero exclusions; Roslyn semantic analysis; tests.
+- Out: `.vb`/`.fs` (skipped), flags, `System.CommandLine`, SARIF/JSON, auto-fixes, MSBuildWorkspace, symlink following, parallelism.
+- Placement: standalone root projects `Encapsulate/Encapsulate.csproj` and `Encapsulate.UnitTests/Encapsulate.UnitTests.csproj`, with its own `Encapsulate.slnx`. They are not added to `Digital-Worker-Demo.slnx` (keeps the root build graph unchanged). They set `net10.0`, `Nullable enable`, `ImplicitUsings enable` and explicit package versions. They do not inherit Calculator/UrlShortener CPM.
+- Packages: `Microsoft.CodeAnalysis.CSharp` 5.9.0 (pinned). Tests: xUnit 2.9.2, xunit.runner.visualstudio 2.8.2, Microsoft.NET.Test.Sdk 17.12.0 (repo style). The first restore needs nuget.org access (environment prerequisite, not a question).
+
+## 3. Decided conventions (resolves the earlier Q-list)
+| Topic | Decision |
+|---|---|
+| Languages | `*.cs` only (case-insensitive extension). Other files are not analysed. An explicit non-`.cs` file argument produces no output and exit 0. |
+| Path argument | 0 or 1 positional argument. Omitted: `Directory.GetCurrentDirectory()`. Non-existent path: message on stderr, exit 2. |
+| Discovery | Recursive, all `.cs` files, no name, folder, generated or hidden exclusions. Symlinks are not followed. Inaccessible entries are skipped. |
+| Analysis unit | Each method, constructor, accessor, local function, field/property initializer and top-level statement block is one unit. Lambdas belong to their enclosing unit. |
+| Receiver key | Normalized receiver expression text (trivia removed, leading `this.` removed). Matching text is sufficient. No alias, reassignment or runtime-identity analysis. Invocation receivers such as `GetOrder().Total` group by their text. |
+| Counting | Occurrences, including repeated access to the same member, for both smells (`a.X + a.X` = 2). |
+| FE | Per unit, per receiver key: occurrences of field/property accesses with a non-null instance that is not the containing instance (`this`/`base`/implicit this). Count >= 2 gives one finding at the first such access in source order. Compound expressions are part of the method-wide count and are not reported separately. A nested receiver counts literally (`a.B.X` + `a.B.Y` group on `a.B`; `this.Buffer.Text` + `Buffer.Tokens` group on `Buffer`). |
+| FE excluded | Static members (no instance), implicit receivers (object/collection initializer targets), `nameof`/`typeof` (no operation), attributes, default values. |
+| PO sites | Invocations (including static methods and `this(...)`/`base(...)` constructor initializers) and object creations (including target-typed `new`). Attributes are excluded. |
+| PO argument | *(Superseded by §7a R5/R6.)* Unwrap conversions and parentheses. The counted member is the root member reference of the argument, i.e. the member reference whose instance is a non-member expression. For `link.Code!.Value` the counted member is `Code` on `link`. Named and reordered arguments count. Expanded `params` elements count as separate arguments. |
+| PO receiver | `this`/`base` and implicit members **are included**. The clarified context states that the FE exclusion does not automatically apply to PO. |
+| PO rule | >= 2 counted arguments with the same receiver key in one call site. One finding at the first such argument in source order. Repeated members count (`M(p.X, p.X)` = 2). Method-call arguments and binary expressions such as `p.X + p.Y` are not counted. |
+| Output | Header `<path relative to the scanned root>` once per file with findings (ordinal path sort). Lines `  Feature Envy (L, C)` and `  Primitive Obsession (L, C)`, sorted by line, column, then smell name. Clean files are omitted. An empty result prints nothing and exits 0. |
+| Exit codes | 0 for a successful scan (findings or not). 2 for an invalid path. |
+| Columns | Roslyn `LinePosition` is 0-based; display is +1. A tab counts as one column (documented). |
+| Diagnostics | Malformed source is still analysed (Roslyn error-tolerant binding). A null operation or unresolved symbol is skipped, never a crash. Coverage is best-effort: only references from `TRUSTED_PLATFORM_ASSEMBLIES` and the scanned files are bound. |
+| Determinism | Single-threaded. Ordinal sorts. Invariant formatting. `\n` newlines. |
+
+Removed contradicted proposals: distinct-member counting (old Q3), invocation receivers never grouping (old Q4), PO excluding `this`/`base` (old Q6), and the `bin/obj/*.g.cs` default exclusions (old Q9). These conflict with the clarified context and the task.
+
+## 4. Semantic approach
+- One `CSharpCompilation` per run over all parsed trees. `LanguageVersion.CSharp14`. References from `TRUSTED_PLATFORM_ASSEMBLIES`.
+- Operations: `IPropertyReferenceOperation`, `IFieldReferenceOperation` (FE and PO), `IInvocationOperation`, `IObjectCreationOperation`, `IArgumentOperation`, `IInstanceReferenceOperation`, `IConversionOperation`, `IParenthesizedOperation`, `IArrayCreationOperation` (expanded `params`).
+- Syntax-only analysis is rejected.
+
+## 5. Architecture (see `Docs/_Current/navigation-map.md`, all classes new)
+- Presentation: `Program` (composition root, argument to `SourceTree`, exit codes), `Report` (ordering and grouped rendering).
+- Data: `SourceTree` (IO only: unfiltered recursive enumeration per R9 and reading, returns `SourceFile` values).
+- Domain: `SourceFile` (immutable value; in Domain so that Domain never depends on Data, R14), `Codebase` (one compilation, runs the units), `CodeUnit` (one body and its semantic model), `Receiver` (per key: occurrence count, `IsEnvied` computed), `MemberAccess` (one access with its receiver key), `CallSite` (one invocation or creation, `PassesObjectParts` computed), `SmellFinding` (immutable).
+- Rules: no static members except constants, no DI container, no singletons, no interfaces between Domain and Data, no tuples or out parameters, at most one parameter per method (constructors excepted). Derived values are computed properties.
+- Sibling flow: none. The repo has no CLI, file-scanning or analyzer flow (context.md §7.3), and there is no glossary to check. Every class is new and justified by the CRC cards below.
+
+### 5a. CRC cards (all new; to-be)
+| Class (layer) | Responsibilities | Collaborators |
+|---|---|---|
+| `Program` (Presentation) | Resolves the 0/1 path argument (CWD default); composes the objects with `new`; writes stdout/stderr; returns exit code 0/2 | `SourceTree`, `Codebase`, `Report` |
+| `Report` (Presentation) | Knows the findings; collapses identical findings (R4); orders them (§3 Output); renders one header per file plus smell lines | `SmellFinding` |
+| `SourceTree` (Data) | Knows the root; tells whether it exists; enumerates `*.cs` (R9); reads text; forms the header path (R10) | `SourceFile` |
+| `SourceFile` (Domain) | Knows the header path and the source text (value) | none |
+| `Codebase` (Domain) | Knows the sources and one compilation (with the R11 global-usings tree); enumerates the analysis units (R8); gathers their findings | `SourceFile`, `CodeUnit`, `SmellFinding` |
+| `CodeUnit` (Domain) | Knows one body and its file; groups countable accesses into receivers (FE); collects call sites (PO); skips nested local functions; yields findings | `MemberAccess`, `Receiver`, `CallSite`, `SmellFinding` |
+| `MemberAccess` (Domain) | Knows the canonical receiver key (R1-R3) and the location of one countable non-indexer field/property reference (R7, R15) | none (wraps a Roslyn operation) |
+| `Receiver` (Domain) | Knows its key, first location and occurrence count; `IsEnvied` = count >= 2 and key is not `this`/`base` | `MemberAccess`, `SmellFinding` |
+| `CallSite` (Domain) | Knows the separate syntactic arguments of one invocation/creation/initializer (R6); counts argument accesses per key; `PassesObjectParts`; first counted location (R15) | `MemberAccess`, `SmellFinding` |
+| `SmellFinding` (Domain) | Knows file, 1-based line, column and kind (two `const` display names); value equality for R4 | none |
+
+## Cross-Class Concepts Glossary
+Planned concepts (no glossary file exists; it is created at implementation once the canonical classes exist, so nothing is written in this planning pass):
+- **Receiver Key** (identity key). Normalized receiver text. Canonical: `MemberAccess` (Domain). Participants: `Receiver`, `CallSite` (Domain).
+- **Smell Scan** (use case). Spine: `Program.Main` -> `SourceTree.ReadSources` -> `Codebase.FindSmells` -> `CodeUnit` -> `Report.Render`.
+
+## 6. Test plan (Theory-table style where it fits; written first, red, then green)
+- FE: 0 and 1 occurrence (no finding); 2 occurrences of the same member; 2 distinct members; 2 receivers in one method (2 findings); `this.`, implicit `this`, `base.` (no finding); static member (no finding); nested `a.B.X`/`a.B.Y` (finding on `a.B`); invocation receivers `GetOrder().Total`/`GetOrder().Tax` (finding); `nameof`; object initializer targets; indexer; field + property mix; lambda inside a method (counted in the enclosing unit); local function (own unit); compound expression subset; reported line and column.
+- PO: 1 vs 2 counted arguments; whole object argument; same member twice; different receivers (no finding); `p.X + p.Y` in one argument (no finding); method-call arguments (no finding); named and reordered arguments; `params` expansion; constructor; target-typed `new`; `base(...)` and `this(...)` initializers; `this.X`/`X` arguments (finding, per clarified rule); `link.Code!.Value` (counts `Value` on `link.Code`, per R5); conversions and parentheses.
+- CLI: no argument (CWD); file argument; directory recursion; non-`.cs` file (no output, exit 0); non-existent path (exit 2, stderr); empty directory (exit 0, no output); malformed source still scanned; multiple files ordering; one header per file; clean files omitted; tab column counting.
+- Corpus regression (real repo): `UrlShortener/Presentation/UrlShortener.Api/Api/LinkEndpoints.cs:43` (FE on `http`), `:50` (FE on `link` and PO); `Calculator/Domain/SciCalc.Domain/Calculator.cs` `:225` and `:237` (PO negative: one counted argument).
+- Mutation coverage target 100% for Domain rules after the tests are green.
+
+## 7. Estimate, gates and verification
+- About 600 LOC (about 300 production, about 300 tests; re-estimated after R1-R17 and the ~80 test cases). Above 200, so the navigation map is required and referenced (`Docs/_Current/navigation-map.md`, which back-references this plan).
+- Verify: `dotnet build` and `dotnet test` on `Encapsulate/Encapsulate.slnx`, offline after the first restore.
+- No git writes. Writes are limited to `Docs/_Current/` during planning. Implementation writes only inside `Encapsulate/`, `Encapsulate.UnitTests/`, `Encapsulate.slnx` and the glossary.
+
+## 7a. Review amendments (2026-11-07, applied to this plan; supersede conflicting rows above)
+- **R1 Receiver key canonicalisation.** Key = receiver expression text with trivia removed, null-forgiving `!` removed, redundant parentheses removed and a leading `this.` removed. An explicit or implicit containing-instance receiver (`this.X`, `X`) has the key `this`; `base.X` has the key `base` (text match only, so `this` and `base` do not group). Without this, PO `M(X, this.Y)` would not group, and FE `link.Code!.Value` + `link.Code.Value` would not group.
+- **R2 Conditional access.** `a?.X`: the member instance is an `IConditionalAccessInstanceOperation`; its key is the text of the enclosing `IConditionalAccessOperation.Operation` (`a`). Test: `a?.X + a?.Y` gives FE; `M(a?.X, a?.Y)` gives PO.
+- **R3 Non-syntactic receivers excluded from both rules.** Any `IInstanceReferenceOperation` with `ReferenceKind` `ImplicitReceiver` (object/collection initializers, `with`) or `PatternInput` (property sub-patterns `a is { X: 1, Y: 2 }`) is skipped. The pattern case is a decision and is listed as a test.
+- **R4 Duplicate output lines.** Nested receivers can produce two FE findings at the same position (`a.B.X + a.B.Y` gives FE on `a` (B counted twice) and on `a.B`, both at the start of `a.B.X`; the same happens at `LinkEndpoints.cs:50` after R1). The output has no receiver text, so identical `(file, smell, line, column)` findings are collapsed to one line. Test the nested case expecting exactly one line.
+- **R5 PO receiver rule is the same as FE's.** For consistency and the literal "fields/properties of the same instance", the counted member is the argument's outermost member reference and its key is that reference's direct receiver (`p.A.B` counts `B` on `p.A`). The root-member rule in §3 is dropped. `LinkEndpoints.cs:50` still reports PO (`OriginalUrl` + `ClickCount` on `link`). **Needs human confirmation (C2).**
+- **R6 Arguments that are not separate syntactic arguments are excluded:** the receiver of a reduced extension call (`p.X.Ext(p.Y)` has 1 separate argument, so no PO; this applies to C# 14 extension members too), implicit default-value arguments (`ArgumentKind.DefaultValue`), and any `IsImplicit` argument whose syntax is not an `ArgumentSyntax`. `params` expansion: elements of the implicit `IArrayCreationOperation` and, for C# 13+ `params` collections, of the implicit `ICollectionExpressionOperation`, count separately.
+- **R7 Indexers.** Indexer access (`IPropertyReferenceOperation` with `Property.IsIndexer`) is not a field/property access for FE or PO, and an indexer is not a PO call site. **Needs human confirmation (C3).**
+- **R8 Analysis units and no double counting.** Units are added for operators, conversion operators, finalizers, event accessors, indexer accessors, expression-bodied members, primary-constructor base-type arguments (`class C(P p) : B(p.X, p.Y)` is a PO site) and constructor initializers. When the enclosing unit is walked, local-function bodies are skipped because they are their own unit. Lambdas stay in the enclosing unit. All top-level statements in one file form one unit.
+- **R9 Discovery must not drop hidden entries.** Use `EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint, MatchCasing = MatchCasing.CaseInsensitive }`. The default `AttributesToSkip` is `Hidden | System`, which would silently exclude dot-directories on Linux and break the clarified "no hidden exclusions" rule. `ReparsePoint` implements "symlinks not followed". Tests: `.hidden/A.cs` is scanned; `bin/` and `obj/*.g.cs` are scanned; `A.CS` is scanned.
+- **R10 Header path.** For a directory argument the header is the path relative to that directory, with `/` separators on all OSes. For a file argument the header is the file name. Test both cases.
+- **R11 Binding coverage (smallest strategy).** Add one synthetic tree that holds the SDK implicit global usings (`System`, `System.Collections.Generic`, `System.IO`, `System.Linq`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks`). Duplicates with scanned `GlobalUsings.g.cs` files produce warnings only. Member accesses that do not resolve (`IInvalidOperation`) are skipped, as already stated. Test: two files declare the same type name, or two files hold top-level statements; the scan must not crash, and accesses that resolve are still reported.
+- **R12 Entry point.** `Program.Main` is the one required static member (entry point). This is a documented exception to the static-member rule.
+- **R13 YAGNI.** `SmellFinding` carries file, line, column and kind only. Member names are dropped because output never prints them.
+- **Additional tests (needed for complete boundary/mutation coverage):** R1 key-equality cases (`this.X`/`X`, `(a).X`/`a.X`, `a!.X`/`a.X`); R2; R3 pattern and `with`; R4 dedupe; R6 reduced extension, default argument, `params` collection; R7 indexer; R8 operator, primary-constructor base call, local function not double counted; static-method PO (`Math.Max(p.X, p.Y)`); delegate invocation; FE threshold boundary on a field initializer; PO threshold boundary 1/2 with one argument being a method call; R9; R10. Corpus expectation at `LinkEndpoints.cs:50`: exactly one FE line and one PO line (after R4). `Calculator.cs` is expected to report FE on `Buffer`; this is accepted because an owned field/property receiver is not `this`. *(Corrected by R16.)*
+- **R14 Layer direction.** `SourceFile` moves from Data to Domain, because `Codebase` (Domain) takes `SourceFile` values and Domain must not depend on Data. `SourceTree` (Data) creates Domain `SourceFile` values.
+- **R15 Reported position.** FE: the start of the first counted member-reference syntax in source order (the receiver start, the `a` in `a.X`). PO: the start of the first counted argument's value expression in source order (after the name of a named argument). This is what makes R4 collisions exact. Tests: named argument column; FE and PO at the same position (`M(a.X, a.Y)`) print two lines, `Feature Envy` first (smell-name tie-break).
+- **R16 Corpus correction.** In `Calculator/Domain/SciCalc.Domain/Calculator.cs`, every unit that touches `Buffer` (lines 93, 102, 166, 198, 225, 237) has exactly one field/property access on `Buffer` (`Text()` is a method and `.Count` is keyed on `Buffer.Tokens`). So there is no FE on `Buffer` and no finding at `:225`/`:237`. This is a negative regression: one access = no FE.
+- **R17 Tests still missing.** `M(this.X, base.Y)` gives no PO (keys differ); tuple elements `t.Item1 + t.Item2` give FE (tuple elements are fields; literal rule); `MemberAccess` holds no member symbol (repeated members count, and nothing prints names: YAGNI, as R13).
+
+### Human checkpoints (approval needed before implementation)
+- **C1** Go/no-go on this plan as amended.
+- **C2** PO direct-receiver rule (R5) instead of the root-member rule.
+- **C3** Indexers excluded (R7). **C4** PO includes `this`/implicit-this receivers (§3), so `new Foo(_a, _b)` inside a class reports PO. This follows the clarified text ("does not automatically apply"), but it is the decision with the most false-positive impact.
+
+## 8. Next step
+Explicit go-ahead on this plan (C1-C4). Then implementation: tests first (red), then production code (green), then the corpus regression run.
+
+---
+
+# User Prompt
 
 Fix a defect in the Calculator (SciCalc) project: after pressing `=` (e.g. entering `2 + 3` and pressing `=`), pressing a prefix function like `sin` produces an incomplete expression `sin(5` with no preview calculated, instead of applying the function to the previous answer and producing a valid complete calculated result (expected: `sin(5)` with a calculated preview). Tasks: (1) Add unit tests covering `sin` and other prefix functions after `=`; (2) Ensure the tests verify that the resulting expression is complete, produces a preview, and does not leave the calculator in an error or incomplete state; (3) Fix the defect in the Domain Calculator seed/continuation logic. Key locations: Calculator/Domain/SciCalc.Domain/Calculator.cs (SeedAnswer/AppendFunction/ContinuesFromAnswer), Calculator/Domain/SciCalc.Domain.UnitTests/ContinuationTests.cs currently encodes the buggy behavior at lines 68-78. Verify with `dotnet test Calculator/SciCalc.slnx` (fallback on Linux without MAUI workloads: `dotnet test Calculator/Domain/SciCalc.Domain.UnitTests/SciCalc.Domain.UnitTests.csproj`).
 
